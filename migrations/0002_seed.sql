@@ -1,5 +1,5 @@
 INSERT OR IGNORE INTO users (telegram_id, full_name, username)
-VALUES (1001, 'Demo User', 'demo_recipe_user');
+VALUES (1001, 'Редактор рецептов', 'recipe_editor');
 
 INSERT OR IGNORE INTO categories (name)
 VALUES ('завтраки'), ('супы'), ('десерты');

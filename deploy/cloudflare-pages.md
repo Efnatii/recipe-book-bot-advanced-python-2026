@@ -1,14 +1,14 @@
-# Cloudflare Online Deploy
+# Развертывание Cloudflare
 
-The project is now deployed as a full online application:
+Проект опубликован через сервисы Cloudflare:
 
-- Cloudflare D1 stores the production database.
-- Cloudflare Worker exposes the API and Telegram webhook endpoint.
-- Cloudflare Pages hosts the public dashboard.
+- D1 хранит рецепты, пользователей, избранное и оценки.
+- Worker предоставляет HTTP API и endpoint Telegram webhook.
+- Pages публикует web-клиент из каталога `docs/`.
 
-## Live URLs
+## Адреса
 
-- Dashboard: `https://recipe-book-bot-advanced-python-2026.pages.dev/`
+- Web-панель: `https://recipe-book-bot-advanced-python-2026.pages.dev/`
 - API: `https://recipe-book-online-api-2026.egory780.workers.dev/`
 - Telegram webhook: `https://recipe-book-online-api-2026.egory780.workers.dev/telegram/webhook`
 
@@ -19,13 +19,13 @@ The project is now deployed as a full online application:
 - binding: `DB`
 - migrations: `migrations/`
 
-Apply remote migrations:
+Применение миграций:
 
 ```powershell
 npm run db:migrate:remote
 ```
 
-## Deploy
+## Публикация
 
 ```powershell
 npm run worker:deploy
@@ -34,20 +34,20 @@ npm run pages:deploy
 
 ## GitHub Actions
 
-The deploy workflow requires repository secrets:
+Workflow `Cloudflare Deploy` запускается вручную. Для запуска из GitHub нужны repository secrets:
 
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
 
-The current local Wrangler OAuth session is enough for manual deploy, but it cannot be reused as a GitHub Actions API token.
+Локальная авторизация Wrangler используется только на этой машине и не переносится в GitHub.
 
-## Telegram Secrets
+## Telegram
 
-Set Worker secrets before connecting a real Telegram bot:
+Перед подключением webhook задаются Worker secrets:
 
 ```powershell
 npx wrangler secret put TELEGRAM_BOT_TOKEN
 npx wrangler secret put TELEGRAM_WEBHOOK_SECRET
 ```
 
-Then register the webhook through Telegram Bot API with the same secret token.
+Затем webhook регистрируется в Telegram Bot API с тем же secret token.

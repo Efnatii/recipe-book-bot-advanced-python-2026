@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Recipe Book Control Panel</title>
+  <title>Книга рецептов: панель управления</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="assets/styles.css">
   <script defer src="assets/app.js"></script>
@@ -69,11 +69,11 @@
   <main class="app-shell">
     <header class="topbar">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">RB</div>
+        <div class="brand-mark" aria-hidden="true">КР</div>
         <div>
-          <p class="eyebrow">Cloudflare D1 + Telegram Bot</p>
-          <h1>Recipe Book Control Panel</h1>
-          <p class="subtitle">Каталог, пользователи, оценки и статистика рецептов.</p>
+          <p class="eyebrow">Telegram-бот и веб-панель</p>
+          <h1>Книга рецептов</h1>
+          <p class="subtitle">Каталог рецептов, пользователи, оценки и статистика.</p>
         </div>
       </div>
       <div class="topbar-actions">
@@ -81,9 +81,9 @@
           <svg class="icon"><use href="#icon-api"></use></svg>
           <span>API</span>
         </a>
-        <a class="outline-link compact-link" href="https://t.me/s6361bot" target="_blank" rel="noreferrer" aria-label="Открыть Telegram bot" title="Telegram bot">
+        <a class="outline-link compact-link" href="https://t.me/s6361bot" target="_blank" rel="noreferrer" aria-label="Открыть Telegram-бота" title="Telegram-бот">
           <svg class="icon"><use href="#icon-telegram"></use></svg>
-          <span>Bot</span>
+          <span>Бот</span>
         </a>
         <div class="status" id="connectionStatus">Подключение...</div>
       </div>
@@ -96,7 +96,7 @@
       </div>
       <div class="metric-card" data-tone="slate">
         <span id="statUsers">0</span>
-        <small>люди</small>
+        <small>пользователи</small>
       </div>
       <div class="metric-card" data-tone="blue">
         <span id="statCategories">0</span>
@@ -104,11 +104,11 @@
       </div>
       <div class="metric-card" data-tone="amber">
         <span id="statIngredients">0</span>
-        <small>ингр.</small>
+        <small>ингредиенты</small>
       </div>
       <div class="metric-card" data-tone="red">
         <span id="statFavorites">0</span>
-        <small>избранных</small>
+        <small>в избранном</small>
       </div>
       <div class="metric-card" data-tone="slate">
         <span id="statRatings">0</span>
@@ -116,7 +116,7 @@
       </div>
     </section>
 
-    <section class="dashboard-grid">
+    <section class="panel-grid">
       <aside class="filters-panel" aria-label="Фильтры каталога">
         <div class="panel-head">
           <h2>Фильтры</h2>
@@ -136,11 +136,11 @@
           </button>
           <button id="modeFavorites" class="segment" type="button" data-mode="favorites" title="Мое избранное" aria-label="Мое избранное">
             <svg class="icon"><use href="#icon-heart"></use></svg>
-            <span>Мои</span>
+            <span>Мое</span>
           </button>
-          <button id="modeAnalytics" class="segment" type="button" data-mode="analytics" title="Статистика" aria-label="Статистика">
+          <button id="modeAnalytics" class="segment" type="button" data-mode="analytics" title="Сводка" aria-label="Сводка">
             <svg class="icon"><use href="#icon-chart"></use></svg>
-            <span>Стат.</span>
+            <span>Итоги</span>
           </button>
         </div>
 
@@ -218,7 +218,7 @@
         <div class="recipe-grid" id="recipeList"></div>
         <button id="loadMoreButton" class="secondary-button wide load-more" type="button" hidden>
           <svg class="icon"><use href="#icon-plus"></use></svg>
-          <span>Еще</span>
+          <span>Показать еще</span>
         </button>
         <div class="analytics-view" id="analyticsView" hidden></div>
       </section>
@@ -248,7 +248,7 @@
           <datalist id="categoryOptions"></datalist>
           <label class="field">Описание<textarea id="descriptionInput" required rows="3"></textarea></label>
           <label class="field">Инструкция<textarea id="instructionsInput" required rows="6"></textarea></label>
-          <label class="field">Ингредиенты<textarea id="ingredientsInput" required rows="6" placeholder="яйца | 3 | шт | по желанию"></textarea></label>
+          <label class="field">Ингредиенты<textarea id="ingredientsInput" required rows="6" placeholder="название | количество | единица | примечание"></textarea></label>
           <div class="editor-actions">
             <button id="saveButton" class="primary-button" type="submit">
               <svg class="icon"><use href="#icon-save"></use></svg>

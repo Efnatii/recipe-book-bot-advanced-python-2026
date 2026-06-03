@@ -81,7 +81,7 @@ const MENU_FAVORITES = "⭐ Избранное";
 const MENU_SEARCH = "🔎 Поиск";
 const MENU_HELP = "❔ Справка";
 const MENU_HOME = "🏠 Меню";
-const MENU_DASHBOARD = "📊 Dashboard";
+const MENU_DASHBOARD = "📊 Панель";
 
 export async function handleTelegramWebhook(
   request: Request,
@@ -166,8 +166,8 @@ async function buildMessageReply(
   if (menuText === "поиск") {
     return searchHelpReply(env, "Напишите запрос следующим сообщением.");
   }
-  if (menuText === "dashboard") {
-    return dashboardReply(env);
+  if (menuText === "панель") {
+    return panelReply(env);
   }
   if (command === "/recipe") {
     const recipeId = tryParsePositiveInt(commandArgs);
@@ -219,7 +219,7 @@ async function buildCallbackReply(
   env: RuntimeEnv,
 ): Promise<CallbackResult> {
   if (data === "menu") {
-    return { reply: mainMenuReply(env, "Нижняя клавиатура включена."), notice: "Меню" };
+    return { reply: mainMenuReply(env, "Меню открыто."), notice: "Меню" };
   }
   if (data === "help") {
     return { reply: helpReply(env), notice: "Справка" };
@@ -304,15 +304,15 @@ async function buildCallbackReply(
     };
   }
   return {
-    reply: mainMenuReply(env, "Действие больше недоступно. Нижняя клавиатура включена."),
-    notice: "Обновите меню",
+    reply: mainMenuReply(env, "Действие устарело. Откройте нужный раздел заново."),
+    notice: "Меню обновлено",
     showAlert: true,
   };
 }
 
 function mainMenuReply(
   env: RuntimeEnv,
-  lead = "Выберите раздел на нижней клавиатуре.",
+  lead = "Выберите раздел.",
   mode: "reply" | "inline" = "reply",
 ): TelegramReply {
   return {
@@ -331,7 +331,7 @@ function helpReply(env: RuntimeEnv): TelegramReply {
     text: [
       "<b>Справка</b>",
       "Рецепты - каталог с пагинацией.",
-      "Категории - быстрый фильтр.",
+      "Категории - фильтр каталога.",
       "Избранное и оценки сохраняются отдельно для вашего Telegram-профиля.",
       "",
       "Для поиска нажмите «Поиск» и отправьте название блюда, категорию или ингредиент.",
@@ -360,12 +360,12 @@ function searchHelpReply(
   };
 }
 
-function dashboardReply(env: RuntimeEnv): TelegramReply {
+function panelReply(env: RuntimeEnv): TelegramReply {
   return {
-    text: "<b>Dashboard</b>\nОнлайн-панель с каталогом, пользователями, оценками и статистикой.",
+    text: "<b>Веб-панель</b>\nКаталог, пользователи, оценки и статистика доступны по ссылке ниже.",
     replyMarkup: {
       inline_keyboard: [
-        [{ text: MENU_DASHBOARD, url: dashboardUrl(env) }],
+        [{ text: MENU_DASHBOARD, url: panelUrl(env) }],
         [{ text: MENU_HOME, callback_data: "menu" }],
       ],
     },
@@ -531,7 +531,7 @@ function mainMenuKeyboard(env: RuntimeEnv): InlineKeyboardMarkup {
         { text: MENU_SEARCH, callback_data: "search_help" },
       ],
       [
-        { text: MENU_DASHBOARD, url: dashboardUrl(env) },
+        { text: MENU_DASHBOARD, url: panelUrl(env) },
         { text: MENU_HELP, callback_data: "help" },
       ],
     ],
@@ -648,7 +648,7 @@ function recipeActionKeyboard(
       ],
       [
         { text: MENU_HOME, callback_data: "menu" },
-        { text: MENU_DASHBOARD, url: dashboardUrl(env) },
+        { text: MENU_DASHBOARD, url: panelUrl(env) },
       ],
     ],
   };
@@ -669,7 +669,7 @@ function ratingKeyboard(recipeId: number): InlineKeyboardMarkup {
 function bottomMenuRow(env: RuntimeEnv): InlineKeyboardButton[] {
   return [
     { text: MENU_HOME, callback_data: "menu" },
-    { text: MENU_DASHBOARD, url: dashboardUrl(env) },
+    { text: MENU_DASHBOARD, url: panelUrl(env) },
   ];
 }
 
@@ -952,7 +952,7 @@ function normalizeMenuText(text: string): string {
   return text.replace(/^[^\p{L}\p{N}/]+/u, "").trim().toLowerCase();
 }
 
-function dashboardUrl(env: RuntimeEnv): string {
+function panelUrl(env: RuntimeEnv): string {
   return env.PUBLIC_SITE_URL ?? DASHBOARD_URL;
 }
 

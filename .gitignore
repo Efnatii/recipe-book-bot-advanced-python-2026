@@ -19,3 +19,4 @@ __pycache__/
 !.env.example
 data/
 coverage.xml
+worker-configuration.d.ts

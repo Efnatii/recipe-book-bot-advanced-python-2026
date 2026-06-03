@@ -1,4 +1,4 @@
-# Recipe Book Bot
+# Книга рецептов
 
 Итоговый проект для ИТ-модуля «Программирование на языке Python. Продвинутый уровень Python».
 
@@ -9,11 +9,11 @@
 - Модульная Python-архитектура: конфигурация, ORM-модели, сервисный CRUD-слой, Telegram UI, CLI.
 - SQLite-база данных на SQLAlchemy 2.x: 7 таблиц и 20+ CRUD/аналитических операций.
 - Telegram-бот на aiogram 3: просмотр рецептов, поиск, карточки, избранное.
-- CLI на Typer/Rich для локальной демонстрации, инициализации БД и seed-данных.
-- Полностью онлайн-слой на Cloudflare: Worker API, D1 database, Telegram webhook endpoint и Pages dashboard.
-- Тестовое окружение: pytest, coverage, ruff, mypy.
-- GitHub Actions: CI с ruff, mypy, pytest и TypeScript typecheck.
-- Cloudflare Pages: бесплатная публикация рабочего web-клиента из `docs/`.
+- CLI на Typer/Rich для инициализации БД, загрузки контрольных данных и локальной проверки.
+- Онлайн-контур на Cloudflare: Worker API, D1, Telegram webhook и веб-панель Pages.
+- Проверки качества: pytest, coverage, ruff, mypy.
+- GitHub Actions: ruff, mypy, pytest и TypeScript typecheck.
+- Cloudflare Pages: публикация web-клиента из `docs/`.
 
 ## Быстрый старт
 
@@ -50,17 +50,17 @@ recipe_book_bot/
   models.py          SQLAlchemy ORM-модели
   schemas.py         pydantic-схемы входных данных
   services.py        CRUD и бизнес-операции
-  seed.py            демонстрационные данные
+  seed.py            контрольные данные
   cli.py             локальный CLI
   bot/               aiogram router, handlers, keyboards
 worker/
-  index.ts           Cloudflare Worker API routes
-  repository.ts      D1 SQL CRUD layer
-  telegram.ts        Telegram webhook adapter
+  index.ts           маршруты Cloudflare Worker API
+  repository.ts      SQL/CRUD слой для D1
+  telegram.ts        адаптер Telegram webhook
   validation.ts      JSON input validation
 docs/
-  index.html         online dashboard
-  assets/app.js      browser client for Worker API
+  index.html         веб-панель
+  assets/app.js      клиент Worker API
 ```
 
 ## База данных
@@ -93,15 +93,15 @@ npm run typecheck
 
 ## Deploy
 
-Cloudflare Pages dashboard: https://recipe-book-bot-advanced-python-2026.pages.dev/
+Cloudflare Pages: веб-панель https://recipe-book-bot-advanced-python-2026.pages.dev/
 
 Cloudflare Worker API: https://recipe-book-online-api-2026.egory780.workers.dev/
 
-Онлайн-проект состоит из:
+Онлайн-контур состоит из:
 
-- Cloudflare D1 database для постоянного хранения рецептов, пользователей, избранного и рейтингов.
+- Cloudflare D1 для хранения рецептов, пользователей, избранного и рейтингов.
 - Cloudflare Worker API для CRUD, статистики и Telegram webhook.
-- Cloudflare Pages dashboard как публичный клиент.
+- Cloudflare Pages как web-клиент.
 
 Ручной deploy:
 
@@ -111,7 +111,7 @@ npm run worker:deploy
 npm run pages:deploy
 ```
 
-Для полноценного Telegram webhook нужно добавить Cloudflare Worker secrets:
+Для Telegram webhook нужно добавить Cloudflare Worker secrets:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`

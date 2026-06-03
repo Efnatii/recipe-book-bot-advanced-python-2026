@@ -4,7 +4,7 @@ const DEFAULT_USER = Object.freeze({
   fullName: "Редактор рецептов",
   username: "recipe_editor",
 });
-const STORAGE_USER_KEY = "recipeBookDashboardUserTelegramId";
+const STORAGE_USER_KEY = "recipeBookPanelUserTelegramId";
 const PAGE_SIZE = 50;
 const INITIAL_VISIBLE_LIMIT = 36;
 
@@ -81,7 +81,7 @@ function boot() {
   elements.timeFilter.addEventListener("change", resetLimitAndRender);
   elements.sortSelect.addEventListener("change", resetLimitAndRender);
   elements.userSelect.addEventListener("change", () => switchUser(Number(elements.userSelect.value)));
-  elements.saveUserButton.addEventListener("click", () => saveDashboardUser());
+  elements.saveUserButton.addEventListener("click", () => savePanelUser());
   elements.loadMoreButton.addEventListener("click", () => {
     state.visibleLimit += INITIAL_VISIBLE_LIMIT;
     renderWorkspace();
@@ -120,7 +120,7 @@ async function loadAll() {
     }
     renderWorkspace();
     renderDetail();
-    setStatus("Online D1", "online");
+    setStatus("D1 подключена", "online");
   } catch (error) {
     setStatus("Ошибка API", "error");
     showToast(error instanceof Error ? error.message : "Не удалось загрузить данные");
@@ -263,8 +263,8 @@ function renderWorkspace() {
   const recipes = getVisibleRecipes();
   const total = state.mode === "favorites" ? state.favorites.size : state.recipes.length;
   const shown = state.mode === "analytics" ? recipes.length : Math.min(recipes.length, state.visibleLimit);
-  elements.resultCount.textContent = `${shown} / ${recipes.length} / ${total}`;
-  elements.resultCount.title = `${shown} показано, ${recipes.length} найдено, ${total} всего`;
+  elements.resultCount.textContent = `Показано ${shown} из ${recipes.length}`;
+  elements.resultCount.title = `Показано ${shown}; найдено ${recipes.length}; всего ${total}`;
   elements.modeEyebrow.textContent = modeLabel(state.mode);
   elements.workspaceTitle.textContent = workspaceTitle();
   elements.insightGrid.hidden = false;
@@ -299,10 +299,10 @@ function setMode(mode) {
 
 function modeLabel(mode) {
   if (mode === "favorites") {
-    return "Мои";
+    return "Избранное";
   }
   if (mode === "analytics") {
-    return "Статистика";
+    return "Итоги";
   }
   return "Каталог";
 }
@@ -310,10 +310,10 @@ function modeLabel(mode) {
 function workspaceTitle() {
   const category = selectedCategoryName();
   if (state.mode === "favorites") {
-    return category === null ? "Мои рецепты" : `Мои: ${category}`;
+    return category === null ? "Мое избранное" : `Избранное: ${category}`;
   }
   if (state.mode === "analytics") {
-    return "Статистика";
+    return "Сводка по каталогу";
   }
   return category === null ? "Все рецепты" : category;
 }
@@ -416,8 +416,8 @@ function renderRecipeCards(recipes) {
       const userRating = state.userRatings.get(recipe.id);
       const isFavorite = state.favorites.has(recipe.id);
       const personalChips = [
-        userRating ? `<span class="chip metric-chip strong" title="Моя оценка">${iconMarkup("star")}<span>моя ${userRating.stars}/5</span></span>` : "",
-        isFavorite ? `<span class="chip metric-chip positive" title="В моем избранном">${iconMarkup("heart")}<span>мое</span></span>` : "",
+        userRating ? `<span class="chip metric-chip strong" title="Оценка выбранного пользователя">${iconMarkup("star")}<span>${userRating.stars}/5</span></span>` : "",
+        isFavorite ? `<span class="chip metric-chip positive" title="В избранном выбранного пользователя">${iconMarkup("heart")}<span>сохранено</span></span>` : "",
       ].join("");
       const button = document.createElement("button");
       button.type = "button";
@@ -425,7 +425,7 @@ function renderRecipeCards(recipes) {
       button.innerHTML = `
         <span class="card-top">
           <strong>${escapeHtml(recipe.title)}</strong>
-          ${isFavorite ? `<span class="favorite-dot" title="В моем избранном">${iconMarkup("heart")}</span>` : ""}
+          ${isFavorite ? `<span class="favorite-dot" title="В избранном выбранного пользователя">${iconMarkup("heart")}</span>` : ""}
         </span>
         <span class="card-meta">
           <span class="chip">${escapeHtml(recipe.category)}</span>
@@ -473,21 +473,21 @@ function renderAnalytics() {
     <section class="analytics-section analytics-summary analytics-wide">
       <h3>Общая сводка</h3>
       <div class="metric-inline-grid">
-        <span><strong>${stats.users ?? state.users.length}</strong><small>люди</small></span>
-        <span><strong>${stats.favorites ?? 0}</strong><small>избранное</small></span>
+        <span><strong>${stats.users ?? state.users.length}</strong><small>пользователи</small></span>
+        <span><strong>${stats.favorites ?? 0}</strong><small>в избранном</small></span>
         <span><strong>${stats.ratings ?? 0}</strong><small>оценок</small></span>
         <span><strong>${stats.recipes ?? state.recipes.length}</strong><small>рецептов</small></span>
       </div>
-      <p class="muted-line">${escapeHtml(shortUserLabel())}: ${state.favorites.size} избран., ${state.userRatings.size} оценки.</p>
+      <p class="muted-line">${escapeHtml(shortUserLabel())}: избранное ${state.favorites.size}, оценок ${state.userRatings.size}.</p>
     </section>
     ${barSection("Категории", byCategory, "bar-section")}
     ${barSection("Сложность", byDifficulty, "bar-section")}
     <section class="analytics-section analytics-wide">
       <h3>Показатели</h3>
       <div class="chip-row">
-        <span class="chip">быстрые: ${fastRecipes}</span>
-        <span class="chip">мои избранные: ${state.favorites.size}</span>
-        <span class="chip">мои оценки: ${state.userRatings.size}</span>
+        <span class="chip">до 30 минут: ${fastRecipes}</span>
+        <span class="chip">в избранном: ${state.favorites.size}</span>
+        <span class="chip">оценок пользователя: ${state.userRatings.size}</span>
         <span class="chip">ингредиенты: ${state.ingredients.length}</span>
       </div>
     </section>
@@ -501,8 +501,8 @@ function renderAnalytics() {
         ${recipeButtonList(topFavorite, (recipe) => `${recipe.favoriteCount} · ${formatRating(recipe.averageRating)}`)}
       </section>
       <section class="analytics-section ranking-section">
-        <h3>Мои оценки</h3>
-        ${recipeButtonList(myRated, (recipe) => `моя ${personalRatingValue(recipe.id)}/5 · всего ${formatRating(recipe.averageRating)}`)}
+        <h3>Оценки пользователя</h3>
+        ${recipeButtonList(myRated, (recipe) => `${personalRatingValue(recipe.id)}/5 · средняя ${formatRating(recipe.averageRating)}`)}
       </section>
     </div>
     <section class="analytics-section analytics-wide">
@@ -581,15 +581,15 @@ function renderDetail() {
     .join("");
   const isFavorite = state.favorites.has(recipe.id);
   const userRating = state.userRatings.get(recipe.id);
-  const favoriteText = isFavorite ? "Убрать" : "В избранное";
-  const favoriteTitle = isFavorite ? "Убрать из моего избранного" : "Добавить в мое избранное";
+  const favoriteText = isFavorite ? "Убрать из избранного" : "В избранное";
+  const favoriteTitle = isFavorite ? "Убрать из избранного выбранного пользователя" : "Добавить в избранное выбранного пользователя";
   elements.recipeDetail.innerHTML = `
     <p class="detail-kicker">${escapeHtml(recipe.category)}</p>
     <h2>${escapeHtml(recipe.title)}</h2>
     <p class="detail-description">${escapeHtml(recipe.description)}</p>
     <div class="user-context">
       <span>${escapeHtml(displayUserLabel(state.currentUser))}</span>
-      <strong>${userRating ? `моя: ${userRating.stars}/5` : "моя: нет"}</strong>
+      <strong>${userRating ? `оценка: ${userRating.stars}/5` : "оценка: нет"}</strong>
     </div>
     <div class="chip-row">
       <span class="chip">${recipe.cookingMinutes} мин</span>
@@ -597,7 +597,7 @@ function renderDetail() {
       <span class="chip metric-chip" title="Средний рейтинг">${iconMarkup("star")}<span>${formatRating(recipe.averageRating)}</span></span>
       <span class="chip metric-chip" title="Оценок всего">${iconMarkup("user")}<span>${recipe.ratingCount}</span></span>
       <span class="chip metric-chip" title="В избранном всего">${iconMarkup("heart")}<span>${recipe.favoriteCount}</span></span>
-      ${isFavorite ? `<span class="chip metric-chip positive" title="В моем избранном">${iconMarkup("heart")}<span>мое</span></span>` : ""}
+      ${isFavorite ? `<span class="chip metric-chip positive" title="В избранном выбранного пользователя">${iconMarkup("heart")}<span>сохранено</span></span>` : ""}
     </div>
     <div class="detail-actions">
       <button id="toggleFavoriteButton" class="secondary-button" type="button" title="${favoriteTitle}" aria-label="${favoriteTitle}">
@@ -671,7 +671,7 @@ function startNewRecipe() {
   elements.ingredientsInput.value = "ингредиент | 1 | г |";
   setDetailTab("editor");
   renderWorkspace();
-  showToast("Заполните редактор и сохраните рецепт");
+  showToast("Заполните поля рецепта и сохраните карточку");
 }
 
 function clearForm() {
@@ -746,7 +746,7 @@ async function toggleCurrentFavorite() {
     renderStaticData();
     renderWorkspace();
     renderDetail();
-    showToast(method === "POST" ? "Добавлено в избранное выбранного пользователя" : "Удалено из избранного выбранного пользователя");
+    showToast(method === "POST" ? "Добавлено в избранное" : "Удалено из избранного");
   } catch (error) {
     showToast(error instanceof Error ? error.message : "Не удалось обновить избранное");
   }
@@ -761,14 +761,14 @@ async function rateCurrentRecipe(stars) {
   try {
     await api(`/api/users/${telegramId}/ratings/${recipeId}`, {
       method: "POST",
-      body: { stars, comment: `Оценка ${shortUserLabel()} из онлайн-dashboard` },
+      body: { stars, comment: `Оценка пользователя: ${shortUserLabel()}` },
     });
     await loadStatsAndUserState();
     await selectRecipe(recipeId, { render: false });
     renderStaticData();
     renderWorkspace();
     renderDetail();
-    showToast(`Оценка ${stars}/5 сохранена для выбранного пользователя`);
+    showToast(`Оценка ${stars}/5 сохранена`);
   } catch (error) {
     showToast(error instanceof Error ? error.message : "Не удалось сохранить оценку");
   }
@@ -795,7 +795,7 @@ async function switchUser(telegramId) {
   }
 }
 
-async function saveDashboardUser() {
+async function savePanelUser() {
   const telegramId = Number(elements.userTelegramInput.value);
   const fullName = elements.userNameInput.value.trim();
   const username = normalizeUsername(elements.userUsernameInput.value);
@@ -873,7 +873,7 @@ async function api(path, options = {}) {
   const payload = await response.json();
   if (!response.ok || payload.ok === false) {
     setStatus("Ошибка API", "error");
-    throw new Error(payload.error ?? "API request failed");
+    throw new Error(payload.error ?? "Запрос к API не выполнен");
   }
   return payload.data ?? payload;
 }

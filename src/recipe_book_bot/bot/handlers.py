@@ -37,7 +37,7 @@ def create_router(service: RecipeBookService) -> Router:
                 message.from_user.username,
             )
         await message.answer(
-            "<b>Книга рецептов</b>\nНижняя клавиатура открыта. Выберите действие.",
+            "<b>Книга рецептов</b>\nМеню открыто. Выберите раздел.",
             reply_markup=reply_menu_keyboard(),
         )
 
@@ -78,7 +78,7 @@ def create_router(service: RecipeBookService) -> Router:
     @router.message(F.text == MENU_HOME)
     async def home_button(message: Message) -> None:
         await message.answer(
-            "<b>Книга рецептов</b>\nВыберите действие на нижней клавиатуре.",
+            "<b>Книга рецептов</b>\nВыберите раздел.",
             reply_markup=reply_menu_keyboard(),
         )
 
