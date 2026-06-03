@@ -11,8 +11,8 @@
 - Telegram-бот на aiogram 3: просмотр рецептов, поиск, карточки, избранное.
 - CLI на Typer/Rich для локальной демонстрации, инициализации БД и seed-данных.
 - Тестовое окружение: pytest, coverage, ruff, mypy.
-- GitHub Actions: CI и публикация статической документации через GitHub Pages.
-- Ручной Cloudflare Pages workflow для бесплатной публикации документации через Wrangler при наличии secrets.
+- GitHub Actions: CI с ruff, mypy и pytest.
+- Cloudflare Pages: бесплатная публикация статической документации из `docs/`; ручной workflow оставлен для redeploy при наличии secrets.
 
 ## Быстрый старт
 
@@ -68,7 +68,7 @@ uv run pytest
 
 Cloudflare Pages: https://recipe-book-bot-advanced-python-2026.pages.dev/
 
-GitHub Pages workflow публикует статическую страницу из `docs/`.
+Основной бесплатный deploy выполнен через Cloudflare Pages из `docs/`.
 
 Cloudflare Pages workflow запускается вручную и требует repository secrets:
 
