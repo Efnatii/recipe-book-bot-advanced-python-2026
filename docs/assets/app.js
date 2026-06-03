@@ -469,7 +469,7 @@ function renderAnalytics() {
     .slice(0, 6);
   const ingredients = state.ingredients.slice(0, 22);
   elements.analyticsView.innerHTML = `
-    <section class="analytics-section analytics-summary">
+    <section class="analytics-section analytics-summary analytics-wide">
       <h3>Сводка по всем пользователям</h3>
       <div class="metric-inline-grid">
         <span><strong>${stats.users ?? state.users.length}</strong><small>пользователей</small></span>
@@ -479,9 +479,9 @@ function renderAnalytics() {
       </div>
       <p class="muted-line">Сейчас выбран ${escapeHtml(displayUserLabel(state.currentUser))}: ${state.favorites.size} в избранном, ${state.userRatings.size} оценок.</p>
     </section>
-    ${barSection("Рецепты по категориям", byCategory)}
-    ${barSection("Сложность", byDifficulty)}
-    <section class="analytics-section">
+    ${barSection("Рецепты по категориям", byCategory, "bar-section")}
+    ${barSection("Сложность", byDifficulty, "bar-section")}
+    <section class="analytics-section analytics-wide">
       <h3>Операционные показатели</h3>
       <div class="chip-row">
         <span class="chip">быстрых рецептов: ${fastRecipes}</span>
@@ -490,19 +490,21 @@ function renderAnalytics() {
         <span class="chip">ингредиентов в справочнике: ${state.ingredients.length}</span>
       </div>
     </section>
-    <section class="analytics-section">
-      <h3>Топ по общему рейтингу</h3>
-      ${recipeButtonList(topRated, (recipe) => `${formatRating(recipe.averageRating)} · ${recipe.ratingCount} оценок`)}
-    </section>
-    <section class="analytics-section">
-      <h3>Топ по избранному</h3>
-      ${recipeButtonList(topFavorite, (recipe) => `${recipe.favoriteCount} добавлений · ${formatRating(recipe.averageRating)}`)}
-    </section>
-    <section class="analytics-section">
-      <h3>Лучшие оценки выбранного пользователя</h3>
-      ${recipeButtonList(myRated, (recipe) => `моя оценка ${personalRatingValue(recipe.id)}/5 · всего ${formatRating(recipe.averageRating)}`)}
-    </section>
-    <section class="analytics-section">
+    <div class="analytics-rankings analytics-wide">
+      <section class="analytics-section ranking-section">
+        <h3>Топ по общему рейтингу</h3>
+        ${recipeButtonList(topRated, (recipe) => `${formatRating(recipe.averageRating)} · ${recipe.ratingCount} оценок`)}
+      </section>
+      <section class="analytics-section ranking-section">
+        <h3>Топ по избранному</h3>
+        ${recipeButtonList(topFavorite, (recipe) => `${recipe.favoriteCount} добавлений · ${formatRating(recipe.averageRating)}`)}
+      </section>
+      <section class="analytics-section ranking-section">
+        <h3>Лучшие оценки выбранного пользователя</h3>
+        ${recipeButtonList(myRated, (recipe) => `моя оценка ${personalRatingValue(recipe.id)}/5 · всего ${formatRating(recipe.averageRating)}`)}
+      </section>
+    </div>
+    <section class="analytics-section analytics-wide">
       <h3>Справочник ингредиентов</h3>
       <div class="chip-row">${ingredients.map((item) => `<span class="chip">${escapeHtml(item.name)} · ${escapeHtml(item.unit)}</span>`).join("")}</div>
     </section>
@@ -527,10 +529,11 @@ function recipeButtonList(recipes, metaMapper) {
     .join("");
 }
 
-function barSection(title, entries) {
+function barSection(title, entries, className = "") {
   const max = Math.max(...entries.map((entry) => entry[1]), 1);
+  const sectionClass = ["analytics-section", className].filter(Boolean).join(" ");
   return `
-    <section class="analytics-section">
+    <section class="${sectionClass}">
       <h3>${escapeHtml(title)}</h3>
       ${entries
         .map(([label, value]) => {
