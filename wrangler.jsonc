@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "recipe-book-online-api-2026",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-06-03",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "APP_ENV": "production",
+    "PUBLIC_SITE_URL": "https://recipe-book-bot-advanced-python-2026.pages.dev"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "recipe-book-online-2026",
+      "database_id": "5eb8c9e6-6e74-44ab-94af-a30d28e74494",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

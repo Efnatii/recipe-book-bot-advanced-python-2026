@@ -1,8 +1,10 @@
 .venv/
+node_modules/
 .ruff_cache/
 .mypy_cache/
 .pytest_cache/
 .wrangler/
+.dev.vars
 .coverage
 htmlcov/
 dist/

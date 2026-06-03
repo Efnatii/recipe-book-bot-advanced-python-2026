@@ -3,39 +3,59 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Recipe Book Bot</title>
+  <title>Recipe Book Online</title>
   <link rel="stylesheet" href="assets/styles.css">
+  <script defer src="assets/app.js"></script>
 </head>
 <body>
-  <main class="page">
-    <section class="hero">
+  <main class="app-shell">
+    <header class="topbar">
       <div>
         <p class="eyebrow">Advanced Python Final Project</p>
-        <h1>Recipe Book Bot</h1>
-        <p class="lead">Модульный Telegram-бот для хранения, поиска и оценки рецептов на Python 3.12, SQLAlchemy 2 и aiogram 3.</p>
+        <h1>Recipe Book Online</h1>
       </div>
-      <div class="schema" aria-label="Схема архитектуры">
-        <div>Telegram UI</div>
-        <span>→</span>
-        <div>Service CRUD</div>
-        <span>→</span>
-        <div>SQLite DB</div>
-      </div>
+      <div class="status" id="connectionStatus">Подключение...</div>
+    </header>
+
+    <section class="stats" aria-label="Статистика проекта">
+      <div><span id="statRecipes">0</span><small>рецептов</small></div>
+      <div><span id="statCategories">0</span><small>категорий</small></div>
+      <div><span id="statIngredients">0</span><small>ингредиентов</small></div>
+      <div><span id="statCrud">0</span><small>CRUD/API операций</small></div>
     </section>
 
-    <section class="grid">
-      <article>
-        <h2>База данных</h2>
-        <p>7 таблиц: пользователи, категории, ингредиенты, рецепты, состав, избранное и оценки.</p>
-      </article>
-      <article>
-        <h2>CRUD</h2>
-        <p>20+ операций сервисного слоя покрывают требования к серверной части и тестам.</p>
-      </article>
-      <article>
-        <h2>CI/CD</h2>
-        <p>GitHub Actions запускает ruff, mypy, pytest и публикует эту страницу через Pages.</p>
-      </article>
+    <section class="workspace">
+      <aside class="sidebar" aria-label="Рецепты">
+        <div class="toolbar">
+          <input id="searchInput" type="search" placeholder="Поиск рецепта">
+          <button id="refreshButton" type="button">Обновить</button>
+          <button id="newButton" type="button">Новый</button>
+        </div>
+        <div class="recipe-list" id="recipeList"></div>
+      </aside>
+
+      <section class="detail" aria-label="Карточка рецепта">
+        <div id="recipeDetail" class="detail-view"></div>
+
+        <form id="recipeForm" class="editor">
+          <input type="hidden" id="recipeId">
+          <div class="form-grid">
+            <label>Название<input id="titleInput" required maxlength="140"></label>
+            <label>Категория<input id="categoryInput" required maxlength="80"></label>
+            <label>Время, мин.<input id="minutesInput" type="number" required min="1" value="20"></label>
+            <label>Сложность<input id="difficultyInput" required maxlength="40" value="простая"></label>
+          </div>
+          <label>Описание<textarea id="descriptionInput" required rows="3"></textarea></label>
+          <label>Инструкция<textarea id="instructionsInput" required rows="5"></textarea></label>
+          <label>Ингредиенты<textarea id="ingredientsInput" required rows="5" placeholder="яйца | 3 | шт | по желанию"></textarea></label>
+          <div class="actions">
+            <button id="saveButton" type="submit">Сохранить</button>
+            <button id="deleteButton" type="button">Удалить</button>
+            <button id="favoriteButton" type="button">В избранное</button>
+            <button id="rateButton" type="button">Оценить 5</button>
+          </div>
+        </form>
+      </section>
     </section>
   </main>
 </body>
