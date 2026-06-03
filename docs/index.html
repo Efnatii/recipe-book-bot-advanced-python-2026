@@ -3,93 +3,140 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Recipe Book Dashboard</title>
+  <title>Recipe Book Control Panel</title>
   <link rel="stylesheet" href="assets/styles.css">
   <script defer src="assets/app.js"></script>
 </head>
 <body>
-  <main class="dashboard-shell">
+  <main class="app-shell">
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">RB</div>
         <div>
-          <p class="eyebrow">Advanced Python Final Project</p>
-          <h1>Recipe Book Dashboard</h1>
+          <p class="eyebrow">Cloudflare D1 + Telegram Bot</p>
+          <h1>Recipe Book Control Panel</h1>
+          <p class="subtitle">Онлайн-каталог, избранное, рейтинг, CRUD и аналитика рецептов.</p>
         </div>
       </div>
       <div class="topbar-actions">
-        <a class="ghost-link" href="https://recipe-book-online-api-2026.egory780.workers.dev/api/health" target="_blank" rel="noreferrer">API</a>
+        <a class="outline-link" href="https://recipe-book-online-api-2026.egory780.workers.dev/" target="_blank" rel="noreferrer">API</a>
+        <a class="outline-link" href="https://t.me/s6361bot" target="_blank" rel="noreferrer">Telegram</a>
         <div class="status" id="connectionStatus">Подключение...</div>
       </div>
     </header>
 
-    <section class="metrics" aria-label="Статистика проекта">
-      <div class="metric" data-tone="green">
+    <section class="metric-grid" aria-label="Сводка проекта">
+      <div class="metric-card" data-tone="green">
         <span id="statRecipes">0</span>
-        <small>рецептов</small>
+        <small>рецептов в D1</small>
       </div>
-      <div class="metric" data-tone="blue">
+      <div class="metric-card" data-tone="blue">
         <span id="statCategories">0</span>
         <small>категорий</small>
       </div>
-      <div class="metric" data-tone="amber">
+      <div class="metric-card" data-tone="amber">
         <span id="statIngredients">0</span>
         <small>ингредиентов</small>
       </div>
-      <div class="metric" data-tone="red">
-        <span id="statCrud">0</span>
-        <small>CRUD/API</small>
+      <div class="metric-card" data-tone="red">
+        <span id="statFavorites">0</span>
+        <small>избранных</small>
+      </div>
+      <div class="metric-card" data-tone="slate">
+        <span id="statRatings">0</span>
+        <small>оценок</small>
       </div>
     </section>
 
-    <section class="control-strip" aria-label="Фильтры и действия">
-      <label class="search-box">
-        <span class="sr-only">Поиск рецепта</span>
-        <input id="searchInput" type="search" placeholder="Поиск по названию или описанию" autocomplete="off">
-      </label>
-      <div class="control-actions">
-        <button id="refreshButton" class="secondary-button" type="button">Обновить</button>
-        <button id="newButton" type="button">Новый рецепт</button>
-      </div>
-    </section>
-
-    <nav class="category-strip" id="categoryFilters" aria-label="Категории рецептов"></nav>
-
-    <section class="workspace">
-      <aside class="recipe-browser" aria-label="Каталог рецептов">
-        <div class="panel-heading">
-          <h2>Каталог</h2>
-          <span id="resultCount">0</span>
+    <section class="dashboard-grid">
+      <aside class="filters-panel" aria-label="Фильтры каталога">
+        <div class="panel-head">
+          <h2>Навигация</h2>
+          <button id="refreshButton" class="icon-button" type="button" title="Обновить данные">Обновить</button>
         </div>
-        <div class="recipe-list" id="recipeList"></div>
+
+        <label class="field">Поиск
+          <input id="searchInput" type="search" placeholder="Название, описание, категория" autocomplete="off">
+        </label>
+
+        <div class="segment-control" role="tablist" aria-label="Режим просмотра">
+          <button id="modeCatalog" class="segment active" type="button" data-mode="catalog">Каталог</button>
+          <button id="modeFavorites" class="segment" type="button" data-mode="favorites">Избранное</button>
+          <button id="modeAnalytics" class="segment" type="button" data-mode="analytics">Аналитика</button>
+        </div>
+
+        <div class="filter-group">
+          <div class="filter-title">Категории</div>
+          <div class="category-list" id="categoryFilters"></div>
+        </div>
+
+        <div class="filter-grid">
+          <label class="field">Сложность
+            <select id="difficultyFilter">
+              <option value="">Любая</option>
+            </select>
+          </label>
+          <label class="field">Время
+            <select id="timeFilter">
+              <option value="">Любое</option>
+              <option value="15">до 15 мин</option>
+              <option value="30">до 30 мин</option>
+              <option value="45">до 45 мин</option>
+              <option value="60">до 60 мин</option>
+            </select>
+          </label>
+          <label class="field">Сортировка
+            <select id="sortSelect">
+              <option value="title">по названию</option>
+              <option value="category">по категории</option>
+              <option value="minutes">по времени</option>
+              <option value="rating">по рейтингу</option>
+              <option value="created">новые выше</option>
+            </select>
+          </label>
+        </div>
+
+        <button id="newButton" class="primary-button wide" type="button">Новый рецепт</button>
       </aside>
 
-      <section class="recipe-panel" aria-label="Карточка рецепта">
-        <div id="recipeDetail" class="detail-view"></div>
+      <section class="content-panel" aria-label="Рабочая область">
+        <div class="content-head">
+          <div>
+            <p class="eyebrow" id="modeEyebrow">Каталог</p>
+            <h2 id="workspaceTitle">Все рецепты</h2>
+          </div>
+          <div class="result-pill" id="resultCount">0 из 0</div>
+        </div>
+
+        <div class="insight-grid" id="insightGrid"></div>
+        <div class="recipe-grid" id="recipeList"></div>
+        <button id="loadMoreButton" class="secondary-button wide load-more" type="button" hidden>Показать еще</button>
+        <div class="analytics-view" id="analyticsView" hidden></div>
       </section>
 
-      <aside class="editor-panel" aria-label="Редактор рецепта">
-        <div class="panel-heading">
-          <h2>Редактор</h2>
-          <span>CRUD</span>
+      <aside class="detail-panel" aria-label="Рецепт и редактор">
+        <div class="detail-tabs" role="tablist" aria-label="Карточка или редактор">
+          <button id="detailTabButton" class="segment active" type="button" data-detail-tab="detail">Карточка</button>
+          <button id="editorTabButton" class="segment" type="button" data-detail-tab="editor">Редактор</button>
         </div>
-        <form id="recipeForm" class="editor">
+
+        <section id="recipeDetail" class="detail-view"></section>
+
+        <form id="recipeForm" class="editor" hidden>
           <input type="hidden" id="recipeId">
           <div class="form-grid">
-            <label>Название<input id="titleInput" required maxlength="140"></label>
-            <label>Категория<input id="categoryInput" list="categoryOptions" required maxlength="80"></label>
-            <label>Время, мин.<input id="minutesInput" type="number" required min="1" value="20"></label>
-            <label>Сложность<input id="difficultyInput" required maxlength="40" value="простая"></label>
+            <label class="field">Название<input id="titleInput" required maxlength="140"></label>
+            <label class="field">Категория<input id="categoryInput" list="categoryOptions" required maxlength="80"></label>
+            <label class="field">Время, мин.<input id="minutesInput" type="number" required min="1" value="20"></label>
+            <label class="field">Сложность<input id="difficultyInput" required maxlength="40" value="простая"></label>
           </div>
           <datalist id="categoryOptions"></datalist>
-          <label>Описание<textarea id="descriptionInput" required rows="3"></textarea></label>
-          <label>Инструкция<textarea id="instructionsInput" required rows="5"></textarea></label>
-          <label>Ингредиенты<textarea id="ingredientsInput" required rows="5" placeholder="яйца | 3 | шт | по желанию"></textarea></label>
-          <div class="actions">
-            <button id="saveButton" type="submit">Сохранить</button>
+          <label class="field">Описание<textarea id="descriptionInput" required rows="3"></textarea></label>
+          <label class="field">Инструкция<textarea id="instructionsInput" required rows="6"></textarea></label>
+          <label class="field">Ингредиенты<textarea id="ingredientsInput" required rows="6" placeholder="яйца | 3 | шт | по желанию"></textarea></label>
+          <div class="editor-actions">
+            <button id="saveButton" class="primary-button" type="submit">Сохранить</button>
             <button id="deleteButton" class="danger-button" type="button">Удалить</button>
-            <button id="favoriteButton" class="secondary-button" type="button">В избранное</button>
-            <button id="rateButton" class="secondary-button" type="button">Оценить 5</button>
           </div>
         </form>
       </aside>

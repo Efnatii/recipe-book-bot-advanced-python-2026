@@ -1,11 +1,18 @@
 const API_BASE = "https://recipe-book-online-api-2026.egory780.workers.dev";
 const DEMO_TELEGRAM_ID = 1001;
+const PAGE_SIZE = 50;
 
 const state = {
   recipes: [],
   categories: [],
+  ingredients: [],
+  favorites: new Set(),
   currentRecipe: null,
+  stats: null,
   activeCategoryId: null,
+  mode: "catalog",
+  detailTab: "detail",
+  visibleLimit: 36,
 };
 
 const elements = {
@@ -13,19 +20,31 @@ const elements = {
   statRecipes: document.querySelector("#statRecipes"),
   statCategories: document.querySelector("#statCategories"),
   statIngredients: document.querySelector("#statIngredients"),
-  statCrud: document.querySelector("#statCrud"),
+  statFavorites: document.querySelector("#statFavorites"),
+  statRatings: document.querySelector("#statRatings"),
   categoryFilters: document.querySelector("#categoryFilters"),
   categoryOptions: document.querySelector("#categoryOptions"),
+  difficultyFilter: document.querySelector("#difficultyFilter"),
+  timeFilter: document.querySelector("#timeFilter"),
+  sortSelect: document.querySelector("#sortSelect"),
   resultCount: document.querySelector("#resultCount"),
   recipeList: document.querySelector("#recipeList"),
+  loadMoreButton: document.querySelector("#loadMoreButton"),
+  analyticsView: document.querySelector("#analyticsView"),
+  insightGrid: document.querySelector("#insightGrid"),
   recipeDetail: document.querySelector("#recipeDetail"),
   recipeForm: document.querySelector("#recipeForm"),
   searchInput: document.querySelector("#searchInput"),
   refreshButton: document.querySelector("#refreshButton"),
   newButton: document.querySelector("#newButton"),
   deleteButton: document.querySelector("#deleteButton"),
-  favoriteButton: document.querySelector("#favoriteButton"),
-  rateButton: document.querySelector("#rateButton"),
+  saveButton: document.querySelector("#saveButton"),
+  modeButtons: document.querySelectorAll("[data-mode]"),
+  detailTabButtons: document.querySelectorAll("[data-detail-tab]"),
+  modeEyebrow: document.querySelector("#modeEyebrow"),
+  workspaceTitle: document.querySelector("#workspaceTitle"),
+  detailTabButton: document.querySelector("#detailTabButton"),
+  editorTabButton: document.querySelector("#editorTabButton"),
   recipeId: document.querySelector("#recipeId"),
   titleInput: document.querySelector("#titleInput"),
   categoryInput: document.querySelector("#categoryInput"),
@@ -42,67 +61,94 @@ boot();
 function boot() {
   elements.refreshButton.addEventListener("click", () => loadAll());
   elements.newButton.addEventListener("click", () => startNewRecipe());
-  elements.searchInput.addEventListener("input", debounce(() => loadRecipes(), 260));
+  elements.searchInput.addEventListener("input", debounce(resetLimitAndRender, 180));
+  elements.difficultyFilter.addEventListener("change", resetLimitAndRender);
+  elements.timeFilter.addEventListener("change", resetLimitAndRender);
+  elements.sortSelect.addEventListener("change", resetLimitAndRender);
+  elements.loadMoreButton.addEventListener("click", () => {
+    state.visibleLimit += 36;
+    renderWorkspace();
+  });
   elements.recipeForm.addEventListener("submit", (event) => saveRecipe(event));
   elements.deleteButton.addEventListener("click", () => deleteCurrentRecipe());
-  elements.favoriteButton.addEventListener("click", () => addCurrentFavorite());
-  elements.rateButton.addEventListener("click", () => rateCurrentRecipe());
+  for (const button of elements.modeButtons) {
+    button.addEventListener("click", () => setMode(button.dataset.mode));
+  }
+  for (const button of elements.detailTabButtons) {
+    button.addEventListener("click", () => setDetailTab(button.dataset.detailTab));
+  }
   loadAll();
 }
 
 async function loadAll() {
   setStatus("Синхронизация", "");
+  setBusy(true);
   try {
     await ensureDemoUser();
-    await Promise.all([loadStats(), loadCategories()]);
-    await loadRecipes();
+    const [stats, categories, ingredients, favorites] = await Promise.all([
+      api("/api/stats"),
+      api("/api/categories"),
+      api("/api/ingredients"),
+      api(`/api/users/${DEMO_TELEGRAM_ID}/favorites`),
+    ]);
+    state.stats = stats;
+    state.categories = categories;
+    state.ingredients = ingredients;
+    state.favorites = new Set(favorites.map((recipe) => recipe.id));
+    renderStaticData();
+    await loadRecipeCatalogue();
+    if (state.currentRecipe === null && state.recipes.length > 0) {
+      await selectRecipe(state.recipes[0].id, { render: false });
+    }
+    renderWorkspace();
+    renderDetail();
     setStatus("Online D1", "online");
   } catch (error) {
     setStatus("Ошибка API", "error");
     showToast(error instanceof Error ? error.message : "Не удалось загрузить данные");
+  } finally {
+    setBusy(false);
   }
 }
 
-async function loadStats() {
-  const stats = await api("/api/stats");
-  elements.statRecipes.textContent = stats.recipes;
-  elements.statCategories.textContent = stats.categories;
-  elements.statIngredients.textContent = stats.ingredients;
-  elements.statCrud.textContent = stats.crudOperations;
+async function loadRecipeCatalogue() {
+  const recipes = [];
+  const seen = new Set();
+  let offset = 0;
+  while (offset < 1000) {
+    setStatus(`Загрузка ${recipes.length}`, "");
+    const page = await api(`/api/recipes?limit=${PAGE_SIZE}&offset=${offset}`);
+    const fresh = page.filter((recipe) => !seen.has(recipe.id));
+    for (const recipe of fresh) {
+      recipes.push(recipe);
+      seen.add(recipe.id);
+    }
+    if (page.length < PAGE_SIZE || fresh.length === 0) {
+      break;
+    }
+    offset += PAGE_SIZE;
+  }
+  state.recipes = recipes;
 }
 
-async function loadCategories() {
-  state.categories = await api("/api/categories");
+function renderStaticData() {
+  const stats = state.stats ?? {};
+  elements.statRecipes.textContent = stats.recipes ?? 0;
+  elements.statCategories.textContent = stats.categories ?? 0;
+  elements.statIngredients.textContent = stats.ingredients ?? 0;
+  elements.statFavorites.textContent = stats.favorites ?? 0;
+  elements.statRatings.textContent = stats.ratings ?? 0;
   renderCategoryFilters();
   renderCategoryOptions();
-}
-
-async function loadRecipes() {
-  const query = elements.searchInput.value.trim();
-  const params = new URLSearchParams({ query, limit: "50" });
-  if (state.activeCategoryId !== null) {
-    params.set("categoryId", String(state.activeCategoryId));
-  }
-  const data = await api(`/api/recipes?${params.toString()}`);
-  state.recipes = data;
-  renderList();
-
-  const currentVisible = data.some((recipe) => recipe.id === state.currentRecipe?.id);
-  if (!currentVisible && data.length > 0) {
-    await selectRecipe(data[0].id);
-    return;
-  }
-  if (data.length === 0) {
-    state.currentRecipe = null;
-    elements.recipeDetail.innerHTML = '<p class="detail-empty">Рецепты не найдены.</p>';
-    clearForm();
-  }
+  renderDifficultyOptions();
 }
 
 function renderCategoryFilters() {
-  const allButton = categoryButton("Все", null);
-  const buttons = state.categories.map((category) => categoryButton(category.name, category.id));
-  elements.categoryFilters.replaceChildren(allButton, ...buttons);
+  const buttons = [
+    categoryButton("Все", null),
+    ...state.categories.map((category) => categoryButton(category.name, category.id)),
+  ];
+  elements.categoryFilters.replaceChildren(...buttons);
 }
 
 function categoryButton(label, categoryId) {
@@ -111,10 +157,11 @@ function categoryButton(label, categoryId) {
   button.className = `category-chip${state.activeCategoryId === categoryId ? " active" : ""}`;
   button.textContent = label;
   button.setAttribute("aria-pressed", state.activeCategoryId === categoryId ? "true" : "false");
-  button.addEventListener("click", async () => {
+  button.addEventListener("click", () => {
     state.activeCategoryId = categoryId;
+    state.visibleLimit = 36;
     renderCategoryFilters();
-    await loadRecipes();
+    renderWorkspace();
   });
   return button;
 }
@@ -129,23 +176,167 @@ function renderCategoryOptions() {
   );
 }
 
-function renderList() {
-  elements.resultCount.textContent = String(state.recipes.length);
-  if (state.recipes.length === 0) {
-    elements.recipeList.innerHTML = '<p class="empty">Нет рецептов.</p>';
+function renderDifficultyOptions() {
+  const values = uniqueSorted(state.recipes.map((recipe) => recipe.difficulty));
+  elements.difficultyFilter.replaceChildren(
+    optionElement("", "Любая"),
+    ...values.map((value) => optionElement(value, value)),
+  );
+}
+
+function renderWorkspace() {
+  renderModeButtons();
+  const recipes = getVisibleRecipes();
+  const total = state.mode === "favorites" ? state.favorites.size : state.recipes.length;
+  const shown = state.mode === "analytics" ? recipes.length : Math.min(recipes.length, state.visibleLimit);
+  elements.resultCount.textContent = `${shown} показано / ${recipes.length} найдено / ${total} всего`;
+  elements.modeEyebrow.textContent = modeLabel(state.mode);
+  elements.workspaceTitle.textContent = workspaceTitle();
+  renderInsights(recipes);
+  if (state.mode === "analytics") {
+    elements.recipeList.hidden = true;
+    elements.loadMoreButton.hidden = true;
+    elements.insightGrid.hidden = false;
+    renderAnalytics();
+    return;
+  }
+  elements.analyticsView.hidden = true;
+  elements.recipeList.hidden = false;
+  renderRecipeCards(recipes.slice(0, state.visibleLimit));
+  elements.loadMoreButton.hidden = recipes.length <= state.visibleLimit;
+}
+
+function renderModeButtons() {
+  for (const button of elements.modeButtons) {
+    button.classList.toggle("active", button.dataset.mode === state.mode);
+  }
+}
+
+function setMode(mode) {
+  state.mode = mode;
+  state.visibleLimit = 36;
+  if (mode === "analytics") {
+    setDetailTab("detail");
+  }
+  renderWorkspace();
+}
+
+function modeLabel(mode) {
+  if (mode === "favorites") {
+    return "Избранное";
+  }
+  if (mode === "analytics") {
+    return "Аналитика";
+  }
+  return "Каталог";
+}
+
+function workspaceTitle() {
+  const category = selectedCategoryName();
+  if (state.mode === "favorites") {
+    return category === null ? "Избранные рецепты" : `Избранное: ${category}`;
+  }
+  if (state.mode === "analytics") {
+    return "Структура каталога";
+  }
+  return category === null ? "Все рецепты" : category;
+}
+
+function getVisibleRecipes() {
+  const query = elements.searchInput.value.trim().toLowerCase();
+  const categoryName = selectedCategoryName();
+  const difficulty = elements.difficultyFilter.value;
+  const maxMinutes = Number(elements.timeFilter.value || 0);
+  let recipes = [...state.recipes];
+  if (state.mode === "favorites") {
+    recipes = recipes.filter((recipe) => state.favorites.has(recipe.id));
+  }
+  if (categoryName !== null) {
+    recipes = recipes.filter((recipe) => recipe.category === categoryName);
+  }
+  if (difficulty.length > 0) {
+    recipes = recipes.filter((recipe) => recipe.difficulty === difficulty);
+  }
+  if (maxMinutes > 0) {
+    recipes = recipes.filter((recipe) => recipe.cookingMinutes <= maxMinutes);
+  }
+  if (query.length > 0) {
+    recipes = recipes.filter((recipe) =>
+      [recipe.title, recipe.description, recipe.category, recipe.difficulty]
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
+    );
+  }
+  return sortRecipes(recipes, elements.sortSelect.value);
+}
+
+function sortRecipes(recipes, sortMode) {
+  const collator = new Intl.Collator("ru");
+  return recipes.sort((left, right) => {
+    if (sortMode === "category") {
+      return (
+        collator.compare(left.category, right.category) ||
+        collator.compare(left.title, right.title)
+      );
+    }
+    if (sortMode === "minutes") {
+      return left.cookingMinutes - right.cookingMinutes || collator.compare(left.title, right.title);
+    }
+    if (sortMode === "rating") {
+      return (right.averageRating ?? -1) - (left.averageRating ?? -1);
+    }
+    if (sortMode === "created") {
+      return Date.parse(right.createdAt) - Date.parse(left.createdAt);
+    }
+    return collator.compare(left.title, right.title);
+  });
+}
+
+function renderInsights(recipes) {
+  const topCategory = topEntry(countBy(recipes, (recipe) => recipe.category));
+  const avgTime = recipes.length === 0 ? 0 : Math.round(sum(recipes, "cookingMinutes") / recipes.length);
+  const rated = recipes.filter((recipe) => recipe.averageRating !== null).length;
+  elements.insightGrid.replaceChildren(
+    insightCard(String(recipes.length), "рецептов в текущем срезе"),
+    insightCard(avgTime === 0 ? "-" : `${avgTime} мин`, "среднее время приготовления"),
+    insightCard(topCategory === null ? "-" : topCategory[0], "самая активная категория"),
+    insightCard(String(rated), "рецептов с оценками"),
+  );
+}
+
+function insightCard(value, label) {
+  const card = document.createElement("div");
+  card.className = "insight";
+  card.innerHTML = `<strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span>`;
+  return card;
+}
+
+function renderRecipeCards(recipes) {
+  if (recipes.length === 0) {
+    elements.recipeList.innerHTML = '<div class="empty-state">Нет рецептов под выбранные фильтры.</div>';
+    elements.loadMoreButton.hidden = true;
     return;
   }
   elements.recipeList.replaceChildren(
-    ...state.recipes.map((recipe) => {
+    ...recipes.map((recipe) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = `recipe-item${state.currentRecipe?.id === recipe.id ? " active" : ""}`;
+      button.className = `recipe-card${state.currentRecipe?.id === recipe.id ? " active" : ""}`;
       button.innerHTML = `
-        <strong class="recipe-title">${escapeHtml(recipe.title)}</strong>
-        <span class="recipe-item-meta">
-          <span class="tag">${escapeHtml(recipe.category)}</span>
-          <span class="tag">${recipe.cookingMinutes} мин.</span>
-          <span class="tag">${formatRating(recipe.averageRating)}</span>
+        <span class="card-top">
+          <strong>${escapeHtml(recipe.title)}</strong>
+          ${state.favorites.has(recipe.id) ? '<span class="favorite-dot">fav</span>' : ""}
+        </span>
+        <span class="card-meta">
+          <span class="chip">${escapeHtml(recipe.category)}</span>
+          <span class="chip">${recipe.cookingMinutes} мин</span>
+          <span class="chip">${escapeHtml(recipe.difficulty)}</span>
+        </span>
+        <span class="card-description">${escapeHtml(trimText(recipe.description, 96))}</span>
+        <span class="chip-row">
+          <span class="chip">${formatRating(recipe.averageRating)}</span>
+          <span class="chip">избранное: ${recipe.favoriteCount}</span>
         </span>
       `;
       button.addEventListener("click", () => selectRecipe(recipe.id));
@@ -154,15 +345,88 @@ function renderList() {
   );
 }
 
-async function selectRecipe(recipeId) {
-  const recipe = await api(`/api/recipes/${recipeId}`);
-  state.currentRecipe = recipe;
-  renderList();
-  renderDetail(recipe);
-  fillForm(recipe);
+function resetLimitAndRender() {
+  state.visibleLimit = 36;
+  renderWorkspace();
 }
 
-function renderDetail(recipe) {
+function renderAnalytics() {
+  elements.analyticsView.hidden = false;
+  const byCategory = entriesByCount(countBy(state.recipes, (recipe) => recipe.category));
+  const byDifficulty = entriesByCount(countBy(state.recipes, (recipe) => recipe.difficulty));
+  const fastRecipes = state.recipes.filter((recipe) => recipe.cookingMinutes <= 30).length;
+  const topRated = [...state.recipes]
+    .filter((recipe) => recipe.averageRating !== null)
+    .sort((left, right) => (right.averageRating ?? 0) - (left.averageRating ?? 0))
+    .slice(0, 6);
+  const ingredients = state.ingredients.slice(0, 22);
+  elements.analyticsView.innerHTML = `
+    ${barSection("Рецепты по категориям", byCategory)}
+    ${barSection("Сложность", byDifficulty)}
+    <section class="analytics-section">
+      <h3>Операционные показатели</h3>
+      <div class="chip-row">
+        <span class="chip">быстрых рецептов: ${fastRecipes}</span>
+        <span class="chip">избранных: ${state.favorites.size}</span>
+        <span class="chip">ингредиентов в справочнике: ${state.ingredients.length}</span>
+      </div>
+    </section>
+    <section class="analytics-section">
+      <h3>Топ по рейтингу</h3>
+      ${topRated.length === 0 ? '<p class="empty-state">Оценок пока мало.</p>' : topRated
+        .map((recipe) => `<button class="ghost-button wide" type="button" data-analytics-recipe="${recipe.id}">${escapeHtml(recipe.title)} · ${formatRating(recipe.averageRating)}</button>`)
+        .join("")}
+    </section>
+    <section class="analytics-section">
+      <h3>Справочник ингредиентов</h3>
+      <div class="chip-row">${ingredients.map((item) => `<span class="chip">${escapeHtml(item.name)} · ${escapeHtml(item.unit)}</span>`).join("")}</div>
+    </section>
+  `;
+  for (const button of elements.analyticsView.querySelectorAll("[data-analytics-recipe]")) {
+    button.addEventListener("click", () => selectRecipe(Number(button.dataset.analyticsRecipe)));
+  }
+}
+
+function barSection(title, entries) {
+  const max = Math.max(...entries.map((entry) => entry[1]), 1);
+  return `
+    <section class="analytics-section">
+      <h3>${escapeHtml(title)}</h3>
+      ${entries
+        .map(([label, value]) => {
+          const width = Math.max(Math.round((value / max) * 100), 4);
+          return `
+            <div class="bar-row">
+              <span class="bar-label">${escapeHtml(label)}</span>
+              <span class="bar-track"><span class="bar-fill" style="width: ${width}%"></span></span>
+              <span class="bar-value">${value}</span>
+            </div>
+          `;
+        })
+        .join("")}
+    </section>
+  `;
+}
+
+async function selectRecipe(recipeId, options = { render: true }) {
+  const recipe = await api(`/api/recipes/${recipeId}`);
+  state.currentRecipe = recipe;
+  upsertSummary(recipe);
+  fillForm(recipe);
+  if (options.render) {
+    setDetailTab("detail");
+    renderWorkspace();
+    renderDetail();
+  }
+}
+
+function renderDetail() {
+  renderDetailTabs();
+  if (state.currentRecipe === null) {
+    elements.recipeDetail.innerHTML = '<div class="empty-state">Выберите рецепт или создайте новый.</div>';
+    return;
+  }
+  const recipe = state.currentRecipe;
   const ingredients = recipe.ingredients
     .map((item) => `
       <li>
@@ -171,21 +435,54 @@ function renderDetail(recipe) {
       </li>
     `)
     .join("");
+  const favoriteText = state.favorites.has(recipe.id) ? "Убрать из избранного" : "В избранное";
   elements.recipeDetail.innerHTML = `
     <p class="detail-kicker">${escapeHtml(recipe.category)}</p>
     <h2>${escapeHtml(recipe.title)}</h2>
-    <p class="description">${escapeHtml(recipe.description)}</p>
-    <div class="meta">
-      <span>${recipe.cookingMinutes} мин.</span>
-      <span>${escapeHtml(recipe.difficulty)}</span>
-      <span>избранное: ${recipe.favoriteCount}</span>
-      <span>${formatRating(recipe.averageRating)}</span>
+    <p class="detail-description">${escapeHtml(recipe.description)}</p>
+    <div class="chip-row">
+      <span class="chip">${recipe.cookingMinutes} мин</span>
+      <span class="chip">${escapeHtml(recipe.difficulty)}</span>
+      <span class="chip">${formatRating(recipe.averageRating)}</span>
+      <span class="chip">избранное: ${recipe.favoriteCount}</span>
+    </div>
+    <div class="detail-actions">
+      <button id="toggleFavoriteButton" class="secondary-button" type="button">${favoriteText}</button>
+      <select id="ratingSelect" class="rating-select" aria-label="Оценка">
+        <option value="5">5</option>
+        <option value="4">4</option>
+        <option value="3">3</option>
+        <option value="2">2</option>
+        <option value="1">1</option>
+      </select>
+      <button id="rateRecipeButton" class="secondary-button" type="button">Оценить</button>
+      <button id="openEditorButton" class="ghost-button" type="button">Редактировать</button>
     </div>
     <h3 class="section-title">Ингредиенты</h3>
     <ul class="ingredients">${ingredients}</ul>
     <h3 class="section-title">Шаги</h3>
     <p class="instructions">${escapeHtml(recipe.instructions)}</p>
   `;
+  document.querySelector("#toggleFavoriteButton").addEventListener("click", toggleCurrentFavorite);
+  document.querySelector("#rateRecipeButton").addEventListener("click", () => {
+    const stars = Number(document.querySelector("#ratingSelect").value);
+    rateCurrentRecipe(stars);
+  });
+  document.querySelector("#openEditorButton").addEventListener("click", () => setDetailTab("editor"));
+}
+
+function setDetailTab(tab) {
+  state.detailTab = tab;
+  renderDetailTabs();
+}
+
+function renderDetailTabs() {
+  for (const button of elements.detailTabButtons) {
+    button.classList.toggle("active", button.dataset.detailTab === state.detailTab);
+  }
+  const showEditor = state.detailTab === "editor";
+  elements.recipeForm.hidden = !showEditor;
+  elements.recipeDetail.hidden = showEditor;
 }
 
 function fillForm(recipe) {
@@ -204,12 +501,13 @@ function fillForm(recipe) {
 function startNewRecipe() {
   state.currentRecipe = null;
   clearForm();
-  elements.categoryInput.value = state.categories[0]?.name ?? "завтраки";
+  elements.categoryInput.value = selectedCategoryName() ?? state.categories[0]?.name ?? "завтраки";
   elements.difficultyInput.value = "простая";
   elements.minutesInput.value = "20";
-  elements.ingredientsInput.value = "ингредиент | 1 | шт |";
-  elements.recipeDetail.innerHTML = '<p class="detail-empty">Новый рецепт</p>';
-  renderList();
+  elements.ingredientsInput.value = "ингредиент | 1 | г |";
+  setDetailTab("editor");
+  renderWorkspace();
+  showToast("Заполните редактор и сохраните рецепт");
 }
 
 function clearForm() {
@@ -225,8 +523,8 @@ function clearForm() {
 
 async function saveRecipe(event) {
   event.preventDefault();
+  setBusy(true);
   try {
-    setBusy(true);
     const recipe = readForm();
     const recipeId = elements.recipeId.value;
     const path = recipeId
@@ -234,10 +532,12 @@ async function saveRecipe(event) {
       : `/api/recipes?authorTelegramId=${DEMO_TELEGRAM_ID}`;
     const method = recipeId ? "PUT" : "POST";
     const saved = await api(path, { method, body: recipe });
-    state.currentRecipe = saved;
-    await Promise.all([loadStats(), loadCategories()]);
-    await loadRecipes();
-    await selectRecipe(saved.id);
+    await Promise.all([loadStatsAndFavorites(), loadRecipeCatalogue()]);
+    renderStaticData();
+    await selectRecipe(saved.id, { render: false });
+    setDetailTab("detail");
+    renderWorkspace();
+    renderDetail();
     showToast("Рецепт сохранен");
   } catch (error) {
     showToast(error instanceof Error ? error.message : "Не удалось сохранить рецепт");
@@ -251,12 +551,16 @@ async function deleteCurrentRecipe() {
   if (!recipeId || !window.confirm("Удалить рецепт?")) {
     return;
   }
+  setBusy(true);
   try {
-    setBusy(true);
     await api(`/api/recipes/${recipeId}`, { method: "DELETE" });
     state.currentRecipe = null;
-    await Promise.all([loadStats(), loadRecipes()]);
-    startNewRecipe();
+    clearForm();
+    await Promise.all([loadStatsAndFavorites(), loadRecipeCatalogue()]);
+    renderStaticData();
+    setDetailTab("detail");
+    renderWorkspace();
+    renderDetail();
     showToast("Рецепт удален");
   } catch (error) {
     showToast(error instanceof Error ? error.message : "Не удалось удалить рецепт");
@@ -265,37 +569,53 @@ async function deleteCurrentRecipe() {
   }
 }
 
-async function addCurrentFavorite() {
-  const recipeId = elements.recipeId.value;
-  if (!recipeId) {
+async function toggleCurrentFavorite() {
+  const recipeId = state.currentRecipe?.id;
+  if (recipeId === undefined) {
     return;
   }
+  const method = state.favorites.has(recipeId) ? "DELETE" : "POST";
   try {
-    await api(`/api/users/${DEMO_TELEGRAM_ID}/favorites/${recipeId}`, { method: "POST" });
-    await selectRecipe(Number(recipeId));
-    await loadStats();
-    showToast("Добавлено в избранное");
+    await api(`/api/users/${DEMO_TELEGRAM_ID}/favorites/${recipeId}`, { method });
+    await loadStatsAndFavorites();
+    await selectRecipe(recipeId, { render: false });
+    renderStaticData();
+    renderWorkspace();
+    renderDetail();
+    showToast(method === "POST" ? "Добавлено в избранное" : "Удалено из избранного");
   } catch (error) {
-    showToast(error instanceof Error ? error.message : "Не удалось добавить в избранное");
+    showToast(error instanceof Error ? error.message : "Не удалось обновить избранное");
   }
 }
 
-async function rateCurrentRecipe() {
-  const recipeId = elements.recipeId.value;
-  if (!recipeId) {
+async function rateCurrentRecipe(stars) {
+  const recipeId = state.currentRecipe?.id;
+  if (recipeId === undefined) {
     return;
   }
   try {
     await api(`/api/users/${DEMO_TELEGRAM_ID}/ratings/${recipeId}`, {
       method: "POST",
-      body: { stars: 5, comment: "Оценка из онлайн-dashboard" },
+      body: { stars, comment: "Оценка из онлайн-dashboard" },
     });
-    await selectRecipe(Number(recipeId));
-    await loadStats();
-    showToast("Оценка сохранена");
+    await loadStatsAndFavorites();
+    await selectRecipe(recipeId, { render: false });
+    renderStaticData();
+    renderWorkspace();
+    renderDetail();
+    showToast(`Оценка ${stars}/5 сохранена`);
   } catch (error) {
     showToast(error instanceof Error ? error.message : "Не удалось сохранить оценку");
   }
+}
+
+async function loadStatsAndFavorites() {
+  const [stats, favorites] = await Promise.all([
+    api("/api/stats"),
+    api(`/api/users/${DEMO_TELEGRAM_ID}/favorites`),
+  ]);
+  state.stats = stats;
+  state.favorites = new Set(favorites.map((recipe) => recipe.id));
 }
 
 function readForm() {
@@ -352,8 +672,8 @@ function setStatus(text, className) {
 function setBusy(isBusy) {
   elements.saveButton.disabled = isBusy;
   elements.deleteButton.disabled = isBusy;
-  elements.favoriteButton.disabled = isBusy;
-  elements.rateButton.disabled = isBusy;
+  elements.refreshButton.disabled = isBusy;
+  elements.newButton.disabled = isBusy;
 }
 
 function showToast(message) {
@@ -365,12 +685,76 @@ function showToast(message) {
   }, 2600);
 }
 
+function selectedCategoryName() {
+  if (state.activeCategoryId === null) {
+    return null;
+  }
+  return state.categories.find((category) => category.id === state.activeCategoryId)?.name ?? null;
+}
+
+function optionElement(value, label) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  return option;
+}
+
+function uniqueSorted(values) {
+  return [...new Set(values.filter(Boolean))].sort(new Intl.Collator("ru").compare);
+}
+
+function countBy(items, mapper) {
+  const result = new Map();
+  for (const item of items) {
+    const key = mapper(item);
+    result.set(key, (result.get(key) ?? 0) + 1);
+  }
+  return result;
+}
+
+function entriesByCount(map) {
+  return [...map.entries()].sort((left, right) => right[1] - left[1]);
+}
+
+function topEntry(map) {
+  return entriesByCount(map)[0] ?? null;
+}
+
+function sum(items, key) {
+  return items.reduce((total, item) => total + item[key], 0);
+}
+
+function upsertSummary(recipe) {
+  state.recipes = state.recipes.map((item) => (item.id === recipe.id ? summaryFromDetails(recipe) : item));
+}
+
+function summaryFromDetails(recipe) {
+  return {
+    id: recipe.id,
+    title: recipe.title,
+    description: recipe.description,
+    cookingMinutes: recipe.cookingMinutes,
+    difficulty: recipe.difficulty,
+    category: recipe.category,
+    authorName: recipe.authorName,
+    favoriteCount: recipe.favoriteCount,
+    ratingCount: recipe.ratingCount,
+    averageRating: recipe.averageRating,
+    createdAt: recipe.createdAt,
+    updatedAt: recipe.updatedAt,
+  };
+}
+
 function formatRating(value) {
   return value === null ? "без оценок" : `рейтинг ${value}/5`;
 }
 
 function formatQuantity(value) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function trimText(value, maxLength) {
+  return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}...`;
 }
 
 function debounce(fn, delay) {

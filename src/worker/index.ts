@@ -1,5 +1,13 @@
 import type { RuntimeEnv } from "./env";
-import { corsPreflight, error, HttpError, json, parsePositiveInt, readJson } from "./http";
+import {
+  corsPreflight,
+  error,
+  HttpError,
+  json,
+  parseNonNegativeInt,
+  parsePositiveInt,
+  readJson,
+} from "./http";
 import {
   addFavorite,
   createRecipe,
@@ -92,10 +100,12 @@ async function route(request: Request, env: RuntimeEnv, ctx: ExecutionContext): 
     if (request.method === "GET") {
       const categoryIdRaw = url.searchParams.get("categoryId");
       const limitRaw = url.searchParams.get("limit");
+      const offsetRaw = url.searchParams.get("offset");
       const recipes = await searchRecipes(env.DB, {
         query: url.searchParams.get("query") ?? "",
         categoryId: categoryIdRaw === null ? null : parsePositiveInt(categoryIdRaw, "categoryId"),
         limit: limitRaw === null ? 20 : parsePositiveInt(limitRaw, "limit"),
+        offset: offsetRaw === null ? 0 : parseNonNegativeInt(offsetRaw, "offset"),
       });
       return json({ ok: true, data: recipes });
     }

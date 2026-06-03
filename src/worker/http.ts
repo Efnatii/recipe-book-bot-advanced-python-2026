@@ -61,3 +61,14 @@ export function parsePositiveInt(value: string | undefined, label: string): numb
   }
   return parsed;
 }
+
+export function parseNonNegativeInt(value: string | undefined, label: string): number {
+  if (value === undefined) {
+    throw new HttpError(400, `${label} is required`);
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new HttpError(400, `${label} must be a non-negative integer`);
+  }
+  return parsed;
+}
