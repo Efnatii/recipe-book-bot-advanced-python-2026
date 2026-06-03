@@ -126,18 +126,21 @@ export const onlineCrudOperationNames = [
 ];
 
 export async function recipeStatistics(db: D1Database): Promise<Record<string, number>> {
-  const [recipes, categories, ingredients, users, favorites, ratings] = await Promise.all([
-    countTable(db, "recipes"),
-    countTable(db, "categories"),
-    countTable(db, "ingredients"),
-    countTable(db, "users"),
-    countTable(db, "favorites"),
-    countTable(db, "ratings"),
-  ]);
+  const [recipes, categories, ingredients, recipeIngredients, users, favorites, ratings] =
+    await Promise.all([
+      countTable(db, "recipes"),
+      countTable(db, "categories"),
+      countTable(db, "ingredients"),
+      countTable(db, "recipe_ingredients"),
+      countTable(db, "users"),
+      countTable(db, "favorites"),
+      countTable(db, "ratings"),
+    ]);
   return {
     users,
     categories,
     ingredients,
+    recipeIngredients,
     recipes,
     favorites,
     ratings,
