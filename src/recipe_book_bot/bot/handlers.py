@@ -7,10 +7,16 @@ from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
 from recipe_book_bot.bot.keyboards import (
+    MENU_FAVORITES,
+    MENU_HELP,
+    MENU_HOME,
+    MENU_RECIPES,
+    MENU_SEARCH,
     main_menu_keyboard,
     rating_keyboard,
     recipe_keyboard,
     recipe_list_keyboard,
+    reply_menu_keyboard,
 )
 from recipe_book_bot.formatters import format_recipe_card
 from recipe_book_bot.models import Recipe
@@ -30,8 +36,8 @@ def create_router(service: RecipeBookService) -> Router:
                 message.from_user.username,
             )
         await message.answer(
-            "<b>Книга рецептов</b>\nВыберите действие кнопками ниже.",
-            reply_markup=main_menu_keyboard(),
+            "<b>Книга рецептов</b>\nНижняя клавиатура открыта. Выберите действие.",
+            reply_markup=reply_menu_keyboard(),
         )
 
     @router.message(Command("help"))
@@ -40,7 +46,7 @@ def create_router(service: RecipeBookService) -> Router:
             "<b>Справка</b>\n"
             "Основные действия доступны через кнопки. Для поиска можно также написать "
             "<code>/search паста</code> или отправить обычный текст.",
-            reply_markup=main_menu_keyboard(),
+            reply_markup=reply_menu_keyboard(),
         )
 
     @router.message(Command("recipes"))
@@ -54,7 +60,7 @@ def create_router(service: RecipeBookService) -> Router:
         if not query:
             await message.answer(
                 "<b>Поиск</b>\nНапишите название блюда или ингредиент.",
-                reply_markup=main_menu_keyboard(),
+                reply_markup=reply_menu_keyboard(),
             )
             return
         items = await asyncio.to_thread(service.search_recipes, query, limit=5)
@@ -67,6 +73,32 @@ def create_router(service: RecipeBookService) -> Router:
             return
         items = await asyncio.to_thread(service.list_favorites, message.from_user.id)
         await answer_recipe_list(message, items, title="Избранное")
+
+    @router.message(F.text == MENU_HOME)
+    async def home_button(message: Message) -> None:
+        await message.answer(
+            "<b>Книга рецептов</b>\nВыберите действие на нижней клавиатуре.",
+            reply_markup=reply_menu_keyboard(),
+        )
+
+    @router.message(F.text == MENU_HELP)
+    async def help_button(message: Message) -> None:
+        await help_message(message)
+
+    @router.message(F.text == MENU_RECIPES)
+    async def recipes_button(message: Message) -> None:
+        await recipes(message)
+
+    @router.message(F.text == MENU_FAVORITES)
+    async def favorites_button(message: Message) -> None:
+        await favorites(message)
+
+    @router.message(F.text == MENU_SEARCH)
+    async def search_button(message: Message) -> None:
+        await message.answer(
+            "<b>Поиск</b>\nНапишите название блюда или ингредиент следующим сообщением.",
+            reply_markup=reply_menu_keyboard(),
+        )
 
     @router.message(F.text & ~F.text.startswith("/"))
     async def free_text_search(message: Message) -> None:

@@ -166,7 +166,7 @@ export async function listIngredients(
 
 export async function searchRecipes(
   db: D1Database,
-  options: { query: string; categoryId: number | null; limit: number },
+  options: { query: string; categoryId: number | null; limit: number; offset?: number },
 ): Promise<RecipeSummary[]> {
   const where: string[] = [];
   const params: (string | number)[] = [];
@@ -181,11 +181,12 @@ export async function searchRecipes(
     params.push(options.categoryId);
   }
   params.push(Math.min(Math.max(options.limit, 1), 50));
+  params.push(Math.max(options.offset ?? 0, 0));
   const statement = `
     ${recipeSelect}
     ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
     ORDER BY r.title
-    LIMIT ?
+    LIMIT ? OFFSET ?
   `;
   const result = await db.prepare(statement).bind(...params).all<RecipeRow>();
   return result.results.map(rowToSummary);
