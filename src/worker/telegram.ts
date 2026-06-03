@@ -3,6 +3,7 @@ import { HttpError, json, readJson } from "./http";
 import {
   addFavorite,
   ensureUser,
+  getUserRecipeState,
   getRecipe,
   listCategories,
   listFavorites,
@@ -11,6 +12,7 @@ import {
   searchRecipes,
   type RecipeDetails,
   type RecipeSummary,
+  type UserRecipeState,
 } from "./repository";
 
 type TelegramUser = {
@@ -73,13 +75,13 @@ type CallbackResult = {
 
 const DASHBOARD_URL = "https://recipe-book-bot-advanced-python-2026.pages.dev/";
 const PAGE_SIZE = 5;
-const MENU_RECIPES = "Рецепты";
-const MENU_CATEGORIES = "Категории";
-const MENU_FAVORITES = "Избранное";
-const MENU_SEARCH = "Поиск";
-const MENU_HELP = "Справка";
-const MENU_HOME = "Меню";
-const MENU_DASHBOARD = "Dashboard";
+const MENU_RECIPES = "📖 Рецепты";
+const MENU_CATEGORIES = "🗂 Категории";
+const MENU_FAVORITES = "⭐ Избранное";
+const MENU_SEARCH = "🔎 Поиск";
+const MENU_HELP = "❔ Справка";
+const MENU_HOME = "🏠 Меню";
+const MENU_DASHBOARD = "📊 Dashboard";
 
 export async function handleTelegramWebhook(
   request: Request,
@@ -133,55 +135,76 @@ async function buildMessageReply(
     await ensureTelegramUser(db, user);
   }
 
-  const lower = text.toLowerCase();
-  if (lower === "/start" || lower === "меню" || text === MENU_HOME) {
+  const command = readCommandName(text);
+  const commandArgs = readCommandArgs(text);
+  const menuText = normalizeMenuText(text);
+
+  if (command === "/start" || menuText === "меню") {
     return mainMenuReply(env);
   }
-  if (lower === "/help" || text === MENU_HELP) {
+  if (command === "/help" || menuText === "справка") {
     return helpReply(env);
   }
-  if (lower === "/recipes" || lower === "рецепты" || text === MENU_RECIPES) {
+  if (command === "/recipes" || menuText === "рецепты") {
     return recipesReply(db, { title: "Рецепты", query: "", categoryId: null, offset: 0 });
   }
-  if (lower === "/categories" || lower === "категории" || text === MENU_CATEGORIES) {
+  if (command === "/categories" || menuText === "категории") {
     return categoriesReply(db);
   }
-  if (lower === "/favorites" || lower === "избранное" || text === MENU_FAVORITES) {
+  if (command === "/favorites" || menuText === "избранное") {
     if (user === undefined) {
       return unknownUserReply();
     }
     return favoritesReply(db, user, 0);
   }
-  if (lower === "/search" || text === MENU_SEARCH) {
+  if (command === "/search") {
+    if (commandArgs.length === 0) {
+      return searchHelpReply(env, "Напишите запрос следующим сообщением.");
+    }
+    return recipesReply(db, { title: `Поиск: ${commandArgs}`, query: commandArgs, categoryId: null, offset: 0 });
+  }
+  if (menuText === "поиск") {
     return searchHelpReply(env, "Напишите запрос следующим сообщением.");
   }
-  if (lower === "dashboard" || text === MENU_DASHBOARD) {
+  if (menuText === "dashboard") {
     return dashboardReply(env);
   }
-  if (lower.startsWith("/recipe ")) {
-    return recipeCardReply(db, parseCommandInt(text, "/recipe "));
+  if (command === "/recipe") {
+    const recipeId = tryParsePositiveInt(commandArgs);
+    if (recipeId === null) {
+      return invalidCommandReply(env, "Используйте формат: <code>/recipe 12</code>.");
+    }
+    return recipeCardReply(db, recipeId, env, user);
   }
-  if (lower.startsWith("/search ")) {
-    const query = text.slice("/search ".length).trim();
-    return recipesReply(db, { title: `Поиск: ${query}`, query, categoryId: null, offset: 0 });
-  }
-  if (lower.startsWith("/favorite ")) {
+  if (command === "/favorite") {
     if (user === undefined) {
       return unknownUserReply();
     }
-    const recipeId = parseCommandInt(text, "/favorite ");
+    const recipeId = tryParsePositiveInt(commandArgs);
+    if (recipeId === null) {
+      return invalidCommandReply(env, "Используйте формат: <code>/favorite 12</code>.");
+    }
+    if ((await getRecipe(db, recipeId)) === null) {
+      return recipeNotFoundReply();
+    }
     await addFavorite(db, user.id, recipeId);
-    return recipeCardReply(db, recipeId, "Добавлено в избранное");
+    return recipeCardReply(db, recipeId, env, user, "Добавлено в избранное");
   }
-  if (lower.startsWith("/rate ")) {
+  if (command === "/rate") {
     if (user === undefined) {
       return unknownUserReply();
     }
-    const parts = text.split(/\s+/);
-    const recipeId = parseCallbackInt(parts[1], "recipeId");
-    const stars = parseStars(parts[2]);
+    const [recipeIdText, starsText] = commandArgs.split(/\s+/, 2);
+    const recipeId = tryParsePositiveInt(recipeIdText ?? "");
+    const stars = tryParseStars(starsText);
+    if (recipeId === null || stars === null) {
+      return invalidCommandReply(env, "Используйте формат: <code>/rate 12 5</code>.");
+    }
+    if ((await getRecipe(db, recipeId)) === null) {
+      return recipeNotFoundReply();
+    }
     await rateRecipe(db, user.id, recipeId, { stars, comment: "Оценка из Telegram" });
-    return recipeCardReply(db, recipeId, `Оценка ${stars}/5 сохранена`);
+    return recipeCardReply(db, recipeId, env, user, `Оценка ${stars}/5 сохранена`);
   }
   if (text.startsWith("/")) {
     return mainMenuReply(env, "Команда не распознана. Выберите действие кнопками.");
@@ -197,6 +220,9 @@ async function buildCallbackReply(
 ): Promise<CallbackResult> {
   if (data === "menu") {
     return { reply: mainMenuReply(env, "Нижняя клавиатура включена."), notice: "Меню" };
+  }
+  if (data === "help") {
+    return { reply: helpReply(env), notice: "Справка" };
   }
   if (data === "recipes" || data.startsWith("recipes:")) {
     const offset = parseOffset(data.split(":")[1]);
@@ -232,16 +258,27 @@ async function buildCallbackReply(
   }
   if (data.startsWith("recipe:")) {
     return {
-      reply: await recipeCardReply(db, parseCallbackInt(data.split(":")[1], "recipeId")),
+      reply: await recipeCardReply(db, parseCallbackInt(data.split(":")[1], "recipeId"), env, user),
       notice: "Карточка",
     };
   }
   if (data.startsWith("favorite:")) {
     const recipeId = parseCallbackInt(data.split(":")[1], "recipeId");
+    if ((await getRecipe(db, recipeId)) === null) {
+      return { reply: recipeNotFoundReply(), notice: "Не найдено", showAlert: true };
+    }
     await addFavorite(db, user.id, recipeId);
     return {
-      reply: await recipeCardReply(db, recipeId, "Добавлено в избранное"),
+      reply: await recipeCardReply(db, recipeId, env, user, "Добавлено в избранное"),
       notice: "Добавлено",
+    };
+  }
+  if (data.startsWith("remove_favorite:")) {
+    const recipeId = parseCallbackInt(data.split(":")[1], "recipeId");
+    await removeFavorite(db, user.id, recipeId);
+    return {
+      reply: await recipeCardReply(db, recipeId, env, user, "Удалено из избранного"),
+      notice: "Удалено",
     };
   }
   if (data.startsWith("unfavorite:")) {
@@ -257,9 +294,12 @@ async function buildCallbackReply(
     const parts = data.split(":");
     const recipeId = parseCallbackInt(parts[1], "recipeId");
     const stars = parseStars(parts[2]);
+    if ((await getRecipe(db, recipeId)) === null) {
+      return { reply: recipeNotFoundReply(), notice: "Не найдено", showAlert: true };
+    }
     await rateRecipe(db, user.id, recipeId, { stars, comment: "Оценка из Telegram" });
     return {
-      reply: await recipeCardReply(db, recipeId, `Оценка ${stars}/5 сохранена`),
+      reply: await recipeCardReply(db, recipeId, env, user, `Оценка ${stars}/5 сохранена`),
       notice: "Оценка сохранена",
     };
   }
@@ -272,7 +312,7 @@ async function buildCallbackReply(
 
 function mainMenuReply(
   env: RuntimeEnv,
-  lead = "Выберите действие кнопками ниже.",
+  lead = "Выберите раздел на нижней клавиатуре.",
   mode: "reply" | "inline" = "reply",
 ): TelegramReply {
   return {
@@ -280,7 +320,7 @@ function mainMenuReply(
       "<b>Книга рецептов</b>",
       escapeHtml(lead),
       "",
-      "Нижняя клавиатура всегда под рукой. Внутри списков используйте кнопки под сообщением.",
+      "Каталог, категории, избранное, поиск и оценки доступны кнопками.",
     ].join("\n"),
     replyMarkup: mode === "reply" ? replyMenuKeyboard() : mainMenuKeyboard(env),
   };
@@ -290,11 +330,11 @@ function helpReply(env: RuntimeEnv): TelegramReply {
   return {
     text: [
       "<b>Справка</b>",
-      "1. Нажмите «Рецепты» или выберите категорию.",
-      "2. Откройте карточку рецепта.",
-      "3. Добавьте в избранное или поставьте оценку.",
+      "Рецепты - каталог с пагинацией.",
+      "Категории - быстрый фильтр.",
+      "Избранное и оценки сохраняются отдельно для вашего Telegram-профиля.",
       "",
-      "Для поиска нажмите «Поиск» и отправьте название блюда или ингредиент.",
+      "Для поиска нажмите «Поиск» и отправьте название блюда, категорию или ингредиент.",
     ].join("\n"),
     replyMarkup: replyMenuKeyboard(),
   };
@@ -313,7 +353,7 @@ function searchHelpReply(
     ].join("\n"),
     replyMarkup: {
       inline_keyboard: [
-        [{ text: "Все рецепты", callback_data: "recipes" }],
+        [{ text: MENU_RECIPES, callback_data: "recipes" }],
         bottomMenuRow(env),
       ],
     },
@@ -322,8 +362,13 @@ function searchHelpReply(
 
 function dashboardReply(env: RuntimeEnv): TelegramReply {
   return {
-    text: `<b>Dashboard</b>\n${escapeHtml(dashboardUrl(env))}`,
-    replyMarkup: replyMenuKeyboard(),
+    text: "<b>Dashboard</b>\nОнлайн-панель с каталогом, пользователями, оценками и статистикой.",
+    replyMarkup: {
+      inline_keyboard: [
+        [{ text: MENU_DASHBOARD, url: dashboardUrl(env) }],
+        [{ text: MENU_HOME, callback_data: "menu" }],
+      ],
+    },
   };
 }
 
@@ -341,12 +386,12 @@ async function recipesReply(
   const hasNext = recipes.length > PAGE_SIZE;
   if (recipes.length === 0) {
     return {
-      text: `<b>${escapeHtml(options.title)}</b>\nНичего не найдено.`,
+      text: `<b>${escapeHtml(options.title)}</b>\nНичего не найдено. Попробуйте другой запрос или откройте категории.`,
       replyMarkup: {
         inline_keyboard: [
-          [{ text: "Все рецепты", callback_data: "recipes" }],
-          [{ text: "Категории", callback_data: "categories" }],
-          [{ text: "Главное меню", callback_data: "menu" }],
+          [{ text: MENU_RECIPES, callback_data: "recipes" }],
+          [{ text: MENU_CATEGORIES, callback_data: "categories" }],
+          [{ text: MENU_HOME, callback_data: "menu" }],
         ],
       },
     };
@@ -354,7 +399,7 @@ async function recipesReply(
   return {
     text: [
       `<b>${escapeHtml(options.title)}</b>`,
-      `Страница ${Math.floor(options.offset / PAGE_SIZE) + 1}. Откройте карточку кнопкой ниже.`,
+      `Страница ${Math.floor(options.offset / PAGE_SIZE) + 1} · ${visibleRecipes.length} карточек`,
       "",
       visibleRecipes.map(recipeSummaryLine).join("\n"),
     ].join("\n"),
@@ -375,10 +420,10 @@ async function categoriesReply(db: D1Database): Promise<TelegramReply> {
     })),
     2,
   );
-  rows.push([{ text: "Все рецепты", callback_data: "recipes" }]);
-  rows.push([{ text: "Главное меню", callback_data: "menu" }]);
+  rows.push([{ text: MENU_RECIPES, callback_data: "recipes" }]);
+  rows.push([{ text: MENU_HOME, callback_data: "menu" }]);
   return {
-    text: "<b>Категории</b>\nВыберите категорию, чтобы отфильтровать рецепты.",
+    text: "<b>Категории</b>\nВыберите раздел каталога.",
     replyMarkup: { inline_keyboard: rows },
   };
 }
@@ -391,11 +436,11 @@ async function favoritesReply(
   const favorites = await listFavorites(db, user.id);
   if (favorites.length === 0) {
     return {
-      text: "<b>Избранное</b>\nПока пусто. Откройте рецепт и нажмите «В избранное».",
+      text: "<b>Избранное</b>\nПока пусто. Откройте рецепт и добавьте его звездой.",
       replyMarkup: {
         inline_keyboard: [
-          [{ text: "Открыть рецепты", callback_data: "recipes" }],
-          [{ text: "Главное меню", callback_data: "menu" }],
+          [{ text: MENU_RECIPES, callback_data: "recipes" }],
+          [{ text: MENU_HOME, callback_data: "menu" }],
         ],
       },
     };
@@ -405,7 +450,7 @@ async function favoritesReply(
   return {
     text: [
       "<b>Избранное</b>",
-      `Страница ${Math.floor(offset / PAGE_SIZE) + 1}. Откройте карточку или удалите рецепт.`,
+      `Страница ${Math.floor(offset / PAGE_SIZE) + 1} · ${visibleFavorites.length} карточек`,
       "",
       visibleFavorites.map(recipeSummaryLine).join("\n"),
     ].join("\n"),
@@ -416,31 +461,29 @@ async function favoritesReply(
 async function recipeCardReply(
   db: D1Database,
   recipeId: number,
+  env: RuntimeEnv,
+  user?: TelegramUser,
   notice?: string,
 ): Promise<TelegramReply> {
   const recipe = await getRecipe(db, recipeId);
   if (recipe === null) {
-    return {
-      text: "<b>Рецепт не найден</b>",
-      replyMarkup: { inline_keyboard: [[{ text: "Все рецепты", callback_data: "recipes" }]] },
-    };
+    return recipeNotFoundReply();
   }
+  const userState =
+    user === undefined ? undefined : await getUserRecipeState(db, user.id, recipe.id);
   return {
-    text: recipeCardText(recipe, notice),
-    replyMarkup: recipeActionKeyboard(recipe.id),
+    text: recipeCardText(recipe, userState, notice),
+    replyMarkup: recipeActionKeyboard(recipe.id, userState, env),
   };
 }
 
 async function ratingReply(db: D1Database, recipeId: number): Promise<TelegramReply> {
   const recipe = await getRecipe(db, recipeId);
   if (recipe === null) {
-    return {
-      text: "<b>Рецепт не найден</b>",
-      replyMarkup: { inline_keyboard: [[{ text: "Все рецепты", callback_data: "recipes" }]] },
-    };
+    return recipeNotFoundReply();
   }
   return {
-    text: `<b>${escapeHtml(recipe.title)}</b>\nВыберите оценку:`,
+    text: `<b>${escapeHtml(recipe.title)}</b>\nВыберите оценку от 1 до 5:`,
     replyMarkup: ratingKeyboard(recipe.id),
   };
 }
@@ -448,21 +491,48 @@ async function ratingReply(db: D1Database, recipeId: number): Promise<TelegramRe
 function unknownUserReply(): TelegramReply {
   return {
     text: "<b>Не удалось определить Telegram-пользователя.</b>\nНажмите /start и повторите действие.",
-    replyMarkup: { inline_keyboard: [[{ text: "Главное меню", callback_data: "menu" }]] },
+    replyMarkup: { inline_keyboard: [[{ text: MENU_HOME, callback_data: "menu" }]] },
+  };
+}
+
+function invalidCommandReply(env: RuntimeEnv, hint: string): TelegramReply {
+  return {
+    text: [
+      "<b>Неверный формат команды</b>",
+      hint,
+      "",
+      "Можно продолжить через кнопки меню.",
+    ].join("\n"),
+    replyMarkup: mainMenuKeyboard(env),
+  };
+}
+
+function recipeNotFoundReply(): TelegramReply {
+  return {
+    text: "<b>Рецепт не найден</b>\nВозможно, карточка была удалена или ссылка устарела.",
+    replyMarkup: {
+      inline_keyboard: [
+        [{ text: MENU_RECIPES, callback_data: "recipes" }],
+        [{ text: MENU_HOME, callback_data: "menu" }],
+      ],
+    },
   };
 }
 
 function mainMenuKeyboard(env: RuntimeEnv): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
-      [{ text: MENU_RECIPES, callback_data: "recipes" }],
       [
+        { text: MENU_RECIPES, callback_data: "recipes" },
         { text: MENU_CATEGORIES, callback_data: "categories" },
-        { text: MENU_FAVORITES, callback_data: "favorites" },
       ],
       [
+        { text: MENU_FAVORITES, callback_data: "favorites" },
         { text: MENU_SEARCH, callback_data: "search_help" },
+      ],
+      [
         { text: MENU_DASHBOARD, url: dashboardUrl(env) },
+        { text: MENU_HELP, callback_data: "help" },
       ],
     ],
   };
@@ -508,7 +578,7 @@ function favoriteListKeyboard(
   const rows: InlineKeyboardButton[][] = [];
   for (const recipe of recipes) {
     rows.push([{ text: recipeButtonTitle(recipe), callback_data: `recipe:${recipe.id}` }]);
-    rows.push([{ text: `Удалить: ${recipe.title}`, callback_data: `unfavorite:${recipe.id}` }]);
+    rows.push([{ text: "Убрать из избранного", callback_data: `unfavorite:${recipe.id}` }]);
   }
   const pageRow = pageNavigationRow(navigation, null, "favorites");
   if (pageRow.length > 0) {
@@ -529,7 +599,7 @@ function pageNavigationRow(
   const row: InlineKeyboardButton[] = [];
   if (navigation.offset > 0) {
     row.push({
-      text: "Назад",
+      text: "‹ Назад",
       callback_data: pageCallbackData(
         Math.max(navigation.offset - PAGE_SIZE, 0),
         categoryId,
@@ -539,7 +609,7 @@ function pageNavigationRow(
   }
   if (navigation.hasNext) {
     row.push({
-      text: "Дальше",
+      text: "Дальше ›",
       callback_data: pageCallbackData(navigation.offset + PAGE_SIZE, categoryId, mode),
     });
   }
@@ -557,16 +627,28 @@ function pageCallbackData(
   return categoryId === null ? `recipes:${offset}` : `category:${categoryId}:${offset}`;
 }
 
-function recipeActionKeyboard(recipeId: number): InlineKeyboardMarkup {
+function recipeActionKeyboard(
+  recipeId: number,
+  state: UserRecipeState | undefined,
+  env: RuntimeEnv,
+): InlineKeyboardMarkup {
+  const favoriteButton =
+    state?.isFavorite === true
+      ? { text: "Убрать из избранного", callback_data: `remove_favorite:${recipeId}` }
+      : { text: "В избранное", callback_data: `favorite:${recipeId}` };
   return {
     inline_keyboard: [
       [
-        { text: "В избранное", callback_data: `favorite:${recipeId}` },
+        favoriteButton,
         { text: "Оценить", callback_data: `rate_menu:${recipeId}` },
       ],
       [
-        { text: "Все рецепты", callback_data: "recipes" },
-        { text: "Главное меню", callback_data: "menu" },
+        { text: MENU_RECIPES, callback_data: "recipes" },
+        { text: MENU_FAVORITES, callback_data: "favorites" },
+      ],
+      [
+        { text: MENU_HOME, callback_data: "menu" },
+        { text: MENU_DASHBOARD, url: dashboardUrl(env) },
       ],
     ],
   };
@@ -576,7 +658,7 @@ function ratingKeyboard(recipeId: number): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       [1, 2, 3, 4, 5].map((stars) => ({
-        text: `${stars}`,
+        text: `${stars}★`,
         callback_data: `rate:${recipeId}:${stars}`,
       })),
       [{ text: "Назад к рецепту", callback_data: `recipe:${recipeId}` }],
@@ -586,8 +668,8 @@ function ratingKeyboard(recipeId: number): InlineKeyboardMarkup {
 
 function bottomMenuRow(env: RuntimeEnv): InlineKeyboardButton[] {
   return [
-    { text: "Главное меню", callback_data: "menu" },
-    { text: "Dashboard", url: dashboardUrl(env) },
+    { text: MENU_HOME, callback_data: "menu" },
+    { text: MENU_DASHBOARD, url: dashboardUrl(env) },
   ];
 }
 
@@ -603,35 +685,47 @@ function chunkButtons(
 }
 
 function recipeSummaryLine(recipe: RecipeSummary): string {
-  const rating = recipe.averageRating === null ? "без оценок" : `${recipe.averageRating}/5`;
+  const rating = recipe.averageRating === null ? "нет оценок" : `${recipe.averageRating}/5`;
   return [
     `<b>${escapeHtml(recipe.title)}</b>`,
     `${escapeHtml(recipe.category)} · ${recipe.cookingMinutes} мин · ${escapeHtml(recipe.difficulty)}`,
-    `Рейтинг: ${rating}`,
+    `${rating} · оценок: ${recipe.ratingCount} · избранное: ${recipe.favoriteCount}`,
   ].join("\n");
 }
 
 function recipeButtonTitle(recipe: RecipeSummary): string {
   const rating = recipe.averageRating === null ? "" : ` · ${recipe.averageRating}/5`;
-  return `${recipe.title} · ${recipe.cookingMinutes} мин${rating}`;
+  return `${trimText(recipe.title, 34)} · ${recipe.cookingMinutes} мин${rating}`;
 }
 
-function recipeCardText(recipe: RecipeDetails, notice?: string): string {
+function recipeCardText(
+  recipe: RecipeDetails,
+  state: UserRecipeState | undefined,
+  notice?: string,
+): string {
   const ingredients = recipe.ingredients
     .map((item) => {
       const note = item.note === null ? "" : ` (${escapeHtml(item.note)})`;
-      return `- ${escapeHtml(item.name)}: ${formatQuantity(item.quantity)} ${escapeHtml(item.unit)}${note}`;
+      return `• ${escapeHtml(item.name)}: ${formatQuantity(item.quantity)} ${escapeHtml(item.unit)}${note}`;
     })
     .join("\n");
   const rating =
     recipe.averageRating === null
       ? "нет оценок"
       : `${recipe.averageRating}/5 (${recipe.ratingCount} оцен.)`;
+  const personal =
+    state === undefined
+      ? ""
+      : [
+          state.isFavorite ? "в избранном" : "не в избранном",
+          state.userRating === null ? "моя оценка: нет" : `моя оценка: ${state.userRating}/5`,
+        ].join(" · ");
   const prefix = notice === undefined ? "" : `<b>${escapeHtml(notice)}</b>\n\n`;
   return [
     `${prefix}<b>${escapeHtml(recipe.title)}</b>`,
     `${escapeHtml(recipe.category)} · ${recipe.cookingMinutes} мин · ${escapeHtml(recipe.difficulty)}`,
-    `Рейтинг: ${rating}`,
+    `Рейтинг: ${rating} · избранное: ${recipe.favoriteCount}`,
+    personal,
     "",
     escapeHtml(recipe.description),
     "",
@@ -684,7 +778,7 @@ async function sendTelegramMessage(
   token: string,
   chatId: number,
   reply: TelegramReply,
-): Promise<void> {
+): Promise<boolean> {
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -697,8 +791,10 @@ async function sendTelegramMessage(
     }),
   });
   if (!response.ok) {
-    await logTelegramFailure("telegram_send_failed", response);
+    await logTelegramFailureResponse("telegram_send_failed", response);
+    return false;
   }
+  return true;
 }
 
 async function deliverCallbackResult(
@@ -716,7 +812,10 @@ async function deliverCallbackResult(
     await sendTelegramMessage(token, chatId, result.reply);
     return;
   }
-  await editTelegramMessage(token, chatId, messageId, result.reply);
+  const edited = await editTelegramMessage(token, chatId, messageId, result.reply);
+  if (!edited) {
+    await sendTelegramMessage(token, chatId, result.reply);
+  }
 }
 
 async function answerCallbackQuery(
@@ -738,7 +837,7 @@ async function answerCallbackQuery(
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    await logTelegramFailure("telegram_callback_answer_failed", response);
+    await logTelegramFailureResponse("telegram_callback_answer_failed", response);
   }
 }
 
@@ -747,7 +846,7 @@ async function editTelegramMessage(
   chatId: number,
   messageId: number,
   reply: TelegramReply,
-): Promise<void> {
+): Promise<boolean> {
   const response = await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -761,16 +860,23 @@ async function editTelegramMessage(
     }),
   });
   if (!response.ok) {
-    await logTelegramFailure("telegram_edit_failed", response);
+    const body = await response.text();
+    await logTelegramFailure("telegram_edit_failed", response.status, body);
+    return body.includes("message is not modified");
   }
+  return true;
 }
 
-async function logTelegramFailure(event: string, response: Response): Promise<void> {
+async function logTelegramFailureResponse(event: string, response: Response): Promise<void> {
+  await logTelegramFailure(event, response.status, await response.text());
+}
+
+async function logTelegramFailure(event: string, status: number, body: string): Promise<void> {
   console.log(
     JSON.stringify({
       event,
-      status: response.status,
-      body: await response.text(),
+      status,
+      body,
     }),
   );
 }
@@ -788,16 +894,17 @@ function isReplyKeyboardMarkup(
   return replyMarkup !== undefined && "keyboard" in replyMarkup;
 }
 
-function parseCommandInt(text: string, prefix: string): number {
-  return parseCallbackInt(text.slice(prefix.length).trim(), "command argument");
-}
-
 function parseCallbackInt(value: string | undefined, label: string): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) {
     throw new HttpError(400, `${label} must be a positive integer`);
   }
   return parsed;
+}
+
+function tryParsePositiveInt(value: string | undefined): number | null {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function parseOffset(value: string | undefined): number {
@@ -817,6 +924,32 @@ function parseStars(value: string | undefined): number {
     throw new HttpError(400, "stars must be an integer from 1 to 5");
   }
   return parsed;
+}
+
+function tryParseStars(value: string | undefined): number | null {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 5 ? parsed : null;
+}
+
+function readCommandName(text: string): string {
+  if (!text.startsWith("/")) {
+    return "";
+  }
+  const [command = ""] = text.trim().split(/\s+/, 1);
+  return command.split("@", 1)[0]?.toLowerCase() ?? "";
+}
+
+function readCommandArgs(text: string): string {
+  if (!text.startsWith("/")) {
+    return "";
+  }
+  const trimmed = text.trim();
+  const firstSpace = trimmed.search(/\s/);
+  return firstSpace === -1 ? "" : trimmed.slice(firstSpace).trim();
+}
+
+function normalizeMenuText(text: string): string {
+  return text.replace(/^[^\p{L}\p{N}/]+/u, "").trim().toLowerCase();
 }
 
 function dashboardUrl(env: RuntimeEnv): string {

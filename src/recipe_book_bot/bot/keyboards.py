@@ -5,11 +5,11 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from recipe_book_bot.models import Recipe
 
-MENU_RECIPES = "Рецепты"
-MENU_FAVORITES = "Избранное"
-MENU_SEARCH = "Поиск"
-MENU_HELP = "Справка"
-MENU_HOME = "Меню"
+MENU_RECIPES = "📖 Рецепты"
+MENU_FAVORITES = "⭐ Избранное"
+MENU_SEARCH = "🔎 Поиск"
+MENU_HELP = "❔ Справка"
+MENU_HOME = "🏠 Меню"
 
 
 def main_menu_keyboard() -> InlineKeyboardMarkup:
@@ -61,7 +61,7 @@ def recipe_keyboard(recipe: Recipe) -> InlineKeyboardMarkup:
 def rating_keyboard(recipe: Recipe) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for stars in range(1, 6):
-        builder.button(text=str(stars), callback_data=f"rate:{recipe.id}:{stars}")
+        builder.button(text=f"{stars}★", callback_data=f"rate:{recipe.id}:{stars}")
     builder.button(text="Назад к рецепту", callback_data=f"recipe:{recipe.id}")
     builder.adjust(5, 1)
     return builder.as_markup()

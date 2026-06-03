@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from aiogram import F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
@@ -283,6 +284,11 @@ async def edit_or_answer(
     reply_markup: InlineKeyboardMarkup,
 ) -> None:
     if isinstance(callback.message, Message):
-        await callback.message.edit_text(text, reply_markup=reply_markup)
+        try:
+            await callback.message.edit_text(text, reply_markup=reply_markup)
+        except TelegramBadRequest as exc:
+            if "message is not modified" in str(exc).lower():
+                return
+            await callback.message.answer(text, reply_markup=reply_markup)
         return
     await callback.answer("Откройте меню заново", show_alert=True)

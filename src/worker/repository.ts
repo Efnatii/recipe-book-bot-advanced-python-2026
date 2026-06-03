@@ -69,6 +69,11 @@ export type UserRatingView = RecipeDetails & {
   };
 };
 
+export type UserRecipeState = {
+  isFavorite: boolean;
+  userRating: number | null;
+};
+
 type IdRow = {
   id: number;
 };
@@ -398,6 +403,31 @@ export async function listUserRatings(
     }
   }
   return recipes;
+}
+
+export async function getUserRecipeState(
+  db: D1Database,
+  telegramId: number,
+  recipeId: number,
+): Promise<UserRecipeState> {
+  const userId = await findUserIdByTelegramId(db, telegramId);
+  if (userId === null) {
+    return { isFavorite: false, userRating: null };
+  }
+  const [favorite, rating] = await Promise.all([
+    db
+      .prepare("SELECT 1 AS found FROM favorites WHERE user_id = ? AND recipe_id = ?")
+      .bind(userId, recipeId)
+      .first<{ found: number }>(),
+    db
+      .prepare("SELECT stars FROM ratings WHERE user_id = ? AND recipe_id = ?")
+      .bind(userId, recipeId)
+      .first<{ stars: number }>(),
+  ]);
+  return {
+    isFavorite: favorite !== null,
+    userRating: rating?.stars ?? null,
+  };
 }
 
 export async function addFavorite(
