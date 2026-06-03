@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "recipe-book-bot"
+version = "0.1.0"
+description = "Telegram recipe book bot with SQLite CRUD services for the Advanced Python final project."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+authors = [
+  { name = "Egor Gorokhovitsky" }
+]
+dependencies = [
+  "aiogram>=3.27,<4",
+  "pydantic>=2.12,<3",
+  "pydantic-settings>=2.12,<3",
+  "rich>=14.0,<15",
+  "sqlalchemy>=2.0,<3",
+  "typer>=0.20,<1",
+]
+
+[project.urls]
+Homepage = "https://github.com/Efnatii/recipe-book-bot-advanced-python-2026"
+Documentation = "https://github.com/Efnatii/recipe-book-bot-advanced-python-2026#readme"
+
+[project.scripts]
+recipe-book-bot = "recipe_book_bot.cli:app"
+
+[dependency-groups]
+dev = [
+  "mypy>=1.18,<2",
+  "pytest>=8.4,<9",
+  "pytest-cov>=7,<8",
+  "ruff>=0.14,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/recipe_book_bot"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "N", "SIM", "UP"]
+ignore = ["N818"]
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+packages = ["recipe_book_bot"]
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+strict_optional = true
+
+[tool.pytest.ini_options]
+addopts = "-q --cov=recipe_book_bot --cov-report=term-missing"
+testpaths = ["tests"]

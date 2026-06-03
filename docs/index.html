@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recipe Book Bot</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Advanced Python Final Project</p>
+        <h1>Recipe Book Bot</h1>
+        <p class="lead">Модульный Telegram-бот для хранения, поиска и оценки рецептов на Python 3.12, SQLAlchemy 2 и aiogram 3.</p>
+      </div>
+      <div class="schema" aria-label="Схема архитектуры">
+        <div>Telegram UI</div>
+        <span>→</span>
+        <div>Service CRUD</div>
+        <span>→</span>
+        <div>SQLite DB</div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article>
+        <h2>База данных</h2>
+        <p>7 таблиц: пользователи, категории, ингредиенты, рецепты, состав, избранное и оценки.</p>
+      </article>
+      <article>
+        <h2>CRUD</h2>
+        <p>20+ операций сервисного слоя покрывают требования к серверной части и тестам.</p>
+      </article>
+      <article>
+        <h2>CI/CD</h2>
+        <p>GitHub Actions запускает ruff, mypy, pytest и публикует эту страницу через Pages.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
