@@ -66,6 +66,8 @@ uv run pytest
 
 ## Deploy
 
+Cloudflare Pages: https://recipe-book-bot-advanced-python-2026.pages.dev/
+
 GitHub Pages workflow публикует статическую страницу из `docs/`.
 
 Cloudflare Pages workflow запускается вручную и требует repository secrets:
