@@ -30,6 +30,8 @@ def reply_menu_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text=MENU_HOME)],
         ],
         resize_keyboard=True,
+        is_persistent=True,
+        one_time_keyboard=False,
         input_field_placeholder="Выберите действие или напишите запрос",
     )
 

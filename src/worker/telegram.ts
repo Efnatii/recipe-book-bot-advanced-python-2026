@@ -53,6 +53,8 @@ type ReplyKeyboardMarkup = {
   keyboard: { text: string }[][];
   resize_keyboard: boolean;
   is_persistent: boolean;
+  one_time_keyboard: boolean;
+  selective: boolean;
   input_field_placeholder: string;
 };
 
@@ -194,7 +196,7 @@ async function buildCallbackReply(
   env: RuntimeEnv,
 ): Promise<CallbackResult> {
   if (data === "menu") {
-    return { reply: mainMenuReply(env, "Выберите действие.", "inline"), notice: "Меню" };
+    return { reply: mainMenuReply(env, "Нижняя клавиатура включена."), notice: "Меню" };
   }
   if (data === "recipes" || data.startsWith("recipes:")) {
     const offset = parseOffset(data.split(":")[1]);
@@ -262,7 +264,7 @@ async function buildCallbackReply(
     };
   }
   return {
-    reply: mainMenuReply(env, "Действие больше недоступно. Вернитесь в меню.", "inline"),
+    reply: mainMenuReply(env, "Действие больше недоступно. Нижняя клавиатура включена."),
     notice: "Обновите меню",
     showAlert: true,
   };
@@ -475,6 +477,8 @@ function replyMenuKeyboard(): ReplyKeyboardMarkup {
     ],
     resize_keyboard: true,
     is_persistent: true,
+    one_time_keyboard: false,
+    selective: false,
     input_field_placeholder: "Выберите действие или напишите запрос",
   };
 }
@@ -708,6 +712,10 @@ async function deliverCallbackResult(
   if (chatId === undefined || messageId === undefined) {
     return;
   }
+  if (isReplyKeyboardMarkup(result.reply.replyMarkup)) {
+    await sendTelegramMessage(token, chatId, result.reply);
+    return;
+  }
   await editTelegramMessage(token, chatId, messageId, result.reply);
 }
 
@@ -772,6 +780,12 @@ function parseTelegramUpdate(value: unknown): TelegramUpdate {
     throw new HttpError(400, "Telegram update object expected");
   }
   return value;
+}
+
+function isReplyKeyboardMarkup(
+  replyMarkup: TelegramReplyMarkup | undefined,
+): replyMarkup is ReplyKeyboardMarkup {
+  return replyMarkup !== undefined && "keyboard" in replyMarkup;
 }
 
 function parseCommandInt(text: string, prefix: string): number {
