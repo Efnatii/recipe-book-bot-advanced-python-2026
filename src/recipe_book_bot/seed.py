@@ -7,7 +7,7 @@ DEMO_TELEGRAM_ID = 1001
 
 
 def seed_demo_data(service: RecipeBookService) -> None:
-    service.ensure_user(DEMO_TELEGRAM_ID, "Demo User", "demo_user")
+    service.ensure_user(DEMO_TELEGRAM_ID, "Редактор рецептов", "recipe_editor")
     if service.search_recipes(limit=1):
         return
 

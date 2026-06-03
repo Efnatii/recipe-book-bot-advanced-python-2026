@@ -872,7 +872,7 @@ async function logTelegramFailureResponse(event: string, response: Response): Pr
 }
 
 async function logTelegramFailure(event: string, status: number, body: string): Promise<void> {
-  console.log(
+  console.error(
     JSON.stringify({
       event,
       status,

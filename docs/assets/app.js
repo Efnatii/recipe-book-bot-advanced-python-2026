@@ -1,8 +1,8 @@
 const API_BASE = "https://recipe-book-online-api-2026.egory780.workers.dev";
 const DEFAULT_USER = Object.freeze({
   telegramId: 1001,
-  fullName: "Demo User",
-  username: "demo_recipe_user",
+  fullName: "Редактор рецептов",
+  username: "recipe_editor",
 });
 const STORAGE_USER_KEY = "recipeBookDashboardUserTelegramId";
 const PAGE_SIZE = 50;

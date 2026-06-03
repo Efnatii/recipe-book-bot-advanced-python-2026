@@ -41,7 +41,7 @@ export default {
       if (caught instanceof HttpError) {
         return error(caught.status, caught.message, caught.details);
       }
-      console.log(
+      console.error(
         JSON.stringify({
           event: "unhandled_error",
           message: caught instanceof Error ? caught.message : "Unknown error",
