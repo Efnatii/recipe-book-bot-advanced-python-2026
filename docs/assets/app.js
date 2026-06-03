@@ -263,7 +263,8 @@ function renderWorkspace() {
   const recipes = getVisibleRecipes();
   const total = state.mode === "favorites" ? state.favorites.size : state.recipes.length;
   const shown = state.mode === "analytics" ? recipes.length : Math.min(recipes.length, state.visibleLimit);
-  elements.resultCount.textContent = `${shown} показано / ${recipes.length} найдено / ${total} всего`;
+  elements.resultCount.textContent = `${shown} / ${recipes.length} / ${total}`;
+  elements.resultCount.title = `${shown} показано, ${recipes.length} найдено, ${total} всего`;
   elements.modeEyebrow.textContent = modeLabel(state.mode);
   elements.workspaceTitle.textContent = workspaceTitle();
   elements.insightGrid.hidden = false;
@@ -298,10 +299,10 @@ function setMode(mode) {
 
 function modeLabel(mode) {
   if (mode === "favorites") {
-    return "Избранное";
+    return "Мои";
   }
   if (mode === "analytics") {
-    return "Аналитика";
+    return "Статистика";
   }
   return "Каталог";
 }
@@ -309,10 +310,10 @@ function modeLabel(mode) {
 function workspaceTitle() {
   const category = selectedCategoryName();
   if (state.mode === "favorites") {
-    return category === null ? `Избранное: ${shortUserLabel()}` : `Избранное: ${category}`;
+    return category === null ? "Мои рецепты" : `Мои: ${category}`;
   }
   if (state.mode === "analytics") {
-    return "Многопользовательская статистика";
+    return "Статистика";
   }
   return category === null ? "Все рецепты" : category;
 }
@@ -388,12 +389,12 @@ function renderInsights(recipes) {
   const rated = recipes.filter((recipe) => recipe.averageRating !== null).length;
   const currentRated = recipes.filter((recipe) => state.userRatings.has(recipe.id)).length;
   elements.insightGrid.replaceChildren(
-    insightCard(String(recipes.length), "рецептов в текущем срезе"),
-    insightCard(avgTime === 0 ? "-" : `${avgTime} мин`, "среднее время приготовления"),
-    insightCard(topCategory === null ? "-" : topCategory[0], "самая активная категория"),
-    insightCard(String(rated), "рецептов с общими оценками"),
-    insightCard(String(currentRated), `оценок пользователя ${shortUserLabel()}`),
-    insightCard(String(state.favorites.size), `избранное пользователя ${shortUserLabel()}`),
+    insightCard(String(recipes.length), "рецептов"),
+    insightCard(avgTime === 0 ? "-" : `${avgTime} мин`, "среднее время"),
+    insightCard(topCategory === null ? "-" : topCategory[0], "топ категория"),
+    insightCard(String(rated), "с оценками"),
+    insightCard(String(currentRated), "мои оценки"),
+    insightCard(String(state.favorites.size), "мое избранное"),
   );
 }
 
@@ -415,8 +416,8 @@ function renderRecipeCards(recipes) {
       const userRating = state.userRatings.get(recipe.id);
       const isFavorite = state.favorites.has(recipe.id);
       const personalChips = [
-        userRating ? `<span class="chip strong">моя оценка: ${userRating.stars}/5</span>` : "",
-        isFavorite ? '<span class="chip positive">в моем избранном</span>' : "",
+        userRating ? `<span class="chip metric-chip strong" title="Моя оценка">${iconMarkup("star")}<span>моя ${userRating.stars}/5</span></span>` : "",
+        isFavorite ? `<span class="chip metric-chip positive" title="В моем избранном">${iconMarkup("heart")}<span>мое</span></span>` : "",
       ].join("");
       const button = document.createElement("button");
       button.type = "button";
@@ -424,7 +425,7 @@ function renderRecipeCards(recipes) {
       button.innerHTML = `
         <span class="card-top">
           <strong>${escapeHtml(recipe.title)}</strong>
-          ${isFavorite ? '<span class="favorite-dot" title="В избранном у выбранного пользователя">★</span>' : ""}
+          ${isFavorite ? `<span class="favorite-dot" title="В моем избранном">${iconMarkup("heart")}</span>` : ""}
         </span>
         <span class="card-meta">
           <span class="chip">${escapeHtml(recipe.category)}</span>
@@ -433,9 +434,9 @@ function renderRecipeCards(recipes) {
         </span>
         <span class="card-description">${escapeHtml(trimText(recipe.description, 96))}</span>
         <span class="chip-row">
-          <span class="chip">${formatRating(recipe.averageRating)}</span>
-          <span class="chip">оценок: ${recipe.ratingCount}</span>
-          <span class="chip">избранное всего: ${recipe.favoriteCount}</span>
+          <span class="chip metric-chip" title="Средний рейтинг">${iconMarkup("star")}<span>${formatRating(recipe.averageRating)}</span></span>
+          <span class="chip metric-chip" title="Оценок всего">${iconMarkup("user")}<span>${recipe.ratingCount}</span></span>
+          <span class="chip metric-chip" title="В избранном всего">${iconMarkup("heart")}<span>${recipe.favoriteCount}</span></span>
           ${personalChips}
         </span>
       `;
@@ -470,42 +471,42 @@ function renderAnalytics() {
   const ingredients = state.ingredients.slice(0, 22);
   elements.analyticsView.innerHTML = `
     <section class="analytics-section analytics-summary analytics-wide">
-      <h3>Сводка по всем пользователям</h3>
+      <h3>Общая сводка</h3>
       <div class="metric-inline-grid">
-        <span><strong>${stats.users ?? state.users.length}</strong><small>пользователей</small></span>
-        <span><strong>${stats.favorites ?? 0}</strong><small>избранных записей</small></span>
+        <span><strong>${stats.users ?? state.users.length}</strong><small>люди</small></span>
+        <span><strong>${stats.favorites ?? 0}</strong><small>избранное</small></span>
         <span><strong>${stats.ratings ?? 0}</strong><small>оценок</small></span>
         <span><strong>${stats.recipes ?? state.recipes.length}</strong><small>рецептов</small></span>
       </div>
-      <p class="muted-line">Сейчас выбран ${escapeHtml(displayUserLabel(state.currentUser))}: ${state.favorites.size} в избранном, ${state.userRatings.size} оценок.</p>
+      <p class="muted-line">${escapeHtml(shortUserLabel())}: ${state.favorites.size} избран., ${state.userRatings.size} оценки.</p>
     </section>
-    ${barSection("Рецепты по категориям", byCategory, "bar-section")}
+    ${barSection("Категории", byCategory, "bar-section")}
     ${barSection("Сложность", byDifficulty, "bar-section")}
     <section class="analytics-section analytics-wide">
-      <h3>Операционные показатели</h3>
+      <h3>Показатели</h3>
       <div class="chip-row">
-        <span class="chip">быстрых рецептов: ${fastRecipes}</span>
-        <span class="chip">личных избранных: ${state.favorites.size}</span>
-        <span class="chip">личных оценок: ${state.userRatings.size}</span>
-        <span class="chip">ингредиентов в справочнике: ${state.ingredients.length}</span>
+        <span class="chip">быстрые: ${fastRecipes}</span>
+        <span class="chip">мои избранные: ${state.favorites.size}</span>
+        <span class="chip">мои оценки: ${state.userRatings.size}</span>
+        <span class="chip">ингредиенты: ${state.ingredients.length}</span>
       </div>
     </section>
     <div class="analytics-rankings analytics-wide">
       <section class="analytics-section ranking-section">
-        <h3>Топ по общему рейтингу</h3>
-        ${recipeButtonList(topRated, (recipe) => `${formatRating(recipe.averageRating)} · ${recipe.ratingCount} оценок`)}
+        <h3>Рейтинг</h3>
+        ${recipeButtonList(topRated, (recipe) => `${formatRating(recipe.averageRating)} · ${recipe.ratingCount}`)}
       </section>
       <section class="analytics-section ranking-section">
-        <h3>Топ по избранному</h3>
-        ${recipeButtonList(topFavorite, (recipe) => `${recipe.favoriteCount} добавлений · ${formatRating(recipe.averageRating)}`)}
+        <h3>Избранное</h3>
+        ${recipeButtonList(topFavorite, (recipe) => `${recipe.favoriteCount} · ${formatRating(recipe.averageRating)}`)}
       </section>
       <section class="analytics-section ranking-section">
-        <h3>Лучшие оценки выбранного пользователя</h3>
-        ${recipeButtonList(myRated, (recipe) => `моя оценка ${personalRatingValue(recipe.id)}/5 · всего ${formatRating(recipe.averageRating)}`)}
+        <h3>Мои оценки</h3>
+        ${recipeButtonList(myRated, (recipe) => `моя ${personalRatingValue(recipe.id)}/5 · всего ${formatRating(recipe.averageRating)}`)}
       </section>
     </div>
     <section class="analytics-section analytics-wide">
-      <h3>Справочник ингредиентов</h3>
+      <h3>Ингредиенты</h3>
       <div class="chip-row">${ingredients.map((item) => `<span class="chip">${escapeHtml(item.name)} · ${escapeHtml(item.unit)}</span>`).join("")}</div>
     </section>
   `;
@@ -580,25 +581,29 @@ function renderDetail() {
     .join("");
   const isFavorite = state.favorites.has(recipe.id);
   const userRating = state.userRatings.get(recipe.id);
-  const favoriteText = isFavorite ? "Убрать из моего избранного" : "В мое избранное";
+  const favoriteText = isFavorite ? "Убрать" : "В избранное";
+  const favoriteTitle = isFavorite ? "Убрать из моего избранного" : "Добавить в мое избранное";
   elements.recipeDetail.innerHTML = `
     <p class="detail-kicker">${escapeHtml(recipe.category)}</p>
     <h2>${escapeHtml(recipe.title)}</h2>
     <p class="detail-description">${escapeHtml(recipe.description)}</p>
     <div class="user-context">
-      <span>Пользователь: ${escapeHtml(displayUserLabel(state.currentUser))}</span>
-      <strong>${userRating ? `моя оценка ${userRating.stars}/5` : "моя оценка не задана"}</strong>
+      <span>${escapeHtml(displayUserLabel(state.currentUser))}</span>
+      <strong>${userRating ? `моя: ${userRating.stars}/5` : "моя: нет"}</strong>
     </div>
     <div class="chip-row">
       <span class="chip">${recipe.cookingMinutes} мин</span>
       <span class="chip">${escapeHtml(recipe.difficulty)}</span>
-      <span class="chip">${formatRating(recipe.averageRating)}</span>
-      <span class="chip">оценок всего: ${recipe.ratingCount}</span>
-      <span class="chip">избранное всего: ${recipe.favoriteCount}</span>
-      ${isFavorite ? '<span class="chip positive">в избранном выбранного пользователя</span>' : ""}
+      <span class="chip metric-chip" title="Средний рейтинг">${iconMarkup("star")}<span>${formatRating(recipe.averageRating)}</span></span>
+      <span class="chip metric-chip" title="Оценок всего">${iconMarkup("user")}<span>${recipe.ratingCount}</span></span>
+      <span class="chip metric-chip" title="В избранном всего">${iconMarkup("heart")}<span>${recipe.favoriteCount}</span></span>
+      ${isFavorite ? `<span class="chip metric-chip positive" title="В моем избранном">${iconMarkup("heart")}<span>мое</span></span>` : ""}
     </div>
     <div class="detail-actions">
-      <button id="toggleFavoriteButton" class="secondary-button" type="button">${favoriteText}</button>
+      <button id="toggleFavoriteButton" class="secondary-button" type="button" title="${favoriteTitle}" aria-label="${favoriteTitle}">
+        ${iconMarkup("heart")}
+        <span>${favoriteText}</span>
+      </button>
       <select id="ratingSelect" class="rating-select" aria-label="Оценка">
         <option value="5">5</option>
         <option value="4">4</option>
@@ -606,10 +611,16 @@ function renderDetail() {
         <option value="2">2</option>
         <option value="1">1</option>
       </select>
-      <button id="rateRecipeButton" class="secondary-button" type="button">Оценить</button>
-      <button id="openEditorButton" class="ghost-button" type="button">Редактировать</button>
+      <button id="rateRecipeButton" class="secondary-button icon-command" type="button" title="Оценить" aria-label="Оценить">
+        ${iconMarkup("star")}
+        <span class="visually-hidden">Оценить</span>
+      </button>
+      <button id="openEditorButton" class="ghost-button" type="button">
+        ${iconMarkup("edit")}
+        <span>Редактор</span>
+      </button>
     </div>
-    <h3 class="section-title">Ингредиенты</h3>
+    <h3 class="section-title">Состав</h3>
     <ul class="ingredients">${ingredients}</ul>
     <h3 class="section-title">Шаги</h3>
     <p class="instructions">${escapeHtml(recipe.instructions)}</p>
@@ -1003,7 +1014,11 @@ function normalizeUsername(value) {
 }
 
 function formatRating(value) {
-  return value === null ? "без оценок" : `рейтинг ${value}/5`;
+  return value === null ? "нет оценок" : `${value}/5`;
+}
+
+function iconMarkup(name) {
+  return `<svg class="icon" aria-hidden="true"><use href="#icon-${name}"></use></svg>`;
 }
 
 function formatQuantity(value) {

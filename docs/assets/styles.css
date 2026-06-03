@@ -41,6 +41,40 @@ body {
   font-family: Inter, "Segoe UI", Arial, sans-serif;
 }
 
+.icon-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.icon-sprite symbol,
+.icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 button,
 input,
 select,
@@ -63,6 +97,14 @@ button,
   cursor: pointer;
   text-decoration: none;
   white-space: nowrap;
+  min-width: 0;
+}
+
+button span,
+.outline-link span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 button:hover,
@@ -169,6 +211,14 @@ h1 {
   flex-wrap: wrap;
 }
 
+.compact-link {
+  min-width: 70px;
+}
+
+.icon-command {
+  padding-inline: 11px;
+}
+
 .outline-link,
 .secondary-button,
 .icon-button,
@@ -220,6 +270,8 @@ h1 {
   background: #fff;
   color: var(--muted);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status::before {
@@ -265,6 +317,7 @@ h1 {
   gap: 4px;
   background: var(--panel);
   box-shadow: var(--shadow);
+  min-width: 0;
 }
 
 .metric-card span {
@@ -276,6 +329,9 @@ h1 {
 .metric-card small {
   color: var(--muted);
   font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metric-card[data-tone="green"] {
@@ -345,6 +401,8 @@ h1 {
   margin: 0;
   font-size: 20px;
   line-height: 1.2;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .field {
@@ -355,16 +413,32 @@ h1 {
   line-height: 1.35;
 }
 
-.segment-control,
-.detail-tabs {
+.segment-control {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.detail-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
 
 .segment {
   min-width: 0;
   padding: 0 8px;
+}
+
+.segment-control .segment {
+  gap: 4px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+.segment .icon {
+  width: 16px;
+  height: 16px;
 }
 
 .segment.active,
@@ -411,6 +485,9 @@ h1 {
   min-height: 32px;
   padding: 0 10px;
   font-size: 13px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .filter-grid {
@@ -435,6 +512,9 @@ h1 {
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .insight-grid {
@@ -452,6 +532,7 @@ h1 {
   display: grid;
   align-content: center;
   background: var(--panel-soft);
+  min-width: 0;
 }
 
 .insight strong {
@@ -463,6 +544,7 @@ h1 {
 .insight span {
   color: var(--muted);
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .recipe-grid {
@@ -486,6 +568,7 @@ h1 {
   color: var(--text);
   background: #fff;
   text-align: left;
+  min-width: 0;
 }
 
 .recipe-card:hover,
@@ -521,6 +604,11 @@ h1 {
   font-weight: 800;
 }
 
+.favorite-dot .icon {
+  width: 15px;
+  height: 15px;
+}
+
 .card-meta,
 .chip-row {
   display: flex;
@@ -529,11 +617,25 @@ h1 {
 }
 
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border-radius: 999px;
   padding: 5px 8px;
   color: #364247;
   background: var(--panel-soft);
   font-size: 12px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.chip .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.chip span {
+  min-width: 0;
 }
 
 .chip.strong {
@@ -648,6 +750,8 @@ h1 {
 .analytics-section h3 {
   margin: 0 0 12px;
   font-size: 16px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .bar-row {
@@ -741,11 +845,13 @@ h1 {
   color: var(--muted);
   background: var(--panel-soft);
   line-height: 1.35;
+  min-width: 0;
 }
 
 .user-context strong {
   color: var(--green-strong);
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .detail-actions {
@@ -793,10 +899,12 @@ h1 {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   background: var(--panel-soft);
+  min-width: 0;
 }
 
 .ingredients strong {
   white-space: nowrap;
+  min-width: 0;
 }
 
 .editor {
@@ -952,11 +1060,6 @@ h1 {
 
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .segment-control,
-  .detail-tabs {
-    grid-template-columns: 1fr;
   }
 
   .content-head,
