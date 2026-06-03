@@ -50,6 +50,25 @@ export type RecipeDetails = RecipeSummary & {
   ingredients: RecipeIngredientView[];
 };
 
+export type UserView = {
+  id: number;
+  telegramId: number;
+  fullName: string;
+  username: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UserRatingView = RecipeDetails & {
+  userRating: {
+    stars: number;
+    comment: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+};
+
 type IdRow = {
   id: number;
 };
@@ -80,6 +99,24 @@ type IngredientRow = {
   unit: string;
   quantity: number;
   note: string | null;
+};
+
+type UserRow = {
+  id: number;
+  telegram_id: number;
+  full_name: string;
+  username: string | null;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type UserRatingRow = {
+  recipe_id: number;
+  stars: number;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type D1RunMeta = {
@@ -116,10 +153,12 @@ export const onlineCrudOperationNames = [
   "create_recipe",
   "update_recipe",
   "delete_recipe",
+  "list_users",
   "ensure_user",
   "list_favorites",
   "add_favorite",
   "remove_favorite",
+  "list_user_ratings",
   "rate_recipe",
   "average_rating",
   "telegram_webhook",
@@ -299,6 +338,17 @@ export async function ensureUser(db: D1Database, input: UserInput): Promise<{ id
   return { id: await requireUserIdByTelegramId(db, input.telegramId) };
 }
 
+export async function listUsers(db: D1Database): Promise<UserView[]> {
+  const result = await db
+    .prepare(
+      `SELECT id, telegram_id, full_name, username, is_active, created_at, updated_at
+       FROM users
+       ORDER BY updated_at DESC, id DESC`,
+    )
+    .all<UserRow>();
+  return result.results.map(rowToUser);
+}
+
 export async function listFavorites(
   db: D1Database,
   telegramId: number,
@@ -313,6 +363,38 @@ export async function listFavorites(
     const recipe = await getRecipe(db, row.id);
     if (recipe !== null) {
       recipes.push(recipe);
+    }
+  }
+  return recipes;
+}
+
+export async function listUserRatings(
+  db: D1Database,
+  telegramId: number,
+): Promise<UserRatingView[]> {
+  const userId = await requireUserIdByTelegramId(db, telegramId);
+  const result = await db
+    .prepare(
+      `SELECT recipe_id, stars, comment, created_at, updated_at
+       FROM ratings
+       WHERE user_id = ?
+       ORDER BY updated_at DESC`,
+    )
+    .bind(userId)
+    .all<UserRatingRow>();
+  const recipes: UserRatingView[] = [];
+  for (const row of result.results) {
+    const recipe = await getRecipe(db, row.recipe_id);
+    if (recipe !== null) {
+      recipes.push({
+        ...recipe,
+        userRating: {
+          stars: row.stars,
+          comment: row.comment,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        },
+      });
     }
   }
   return recipes;
@@ -482,6 +564,18 @@ function rowToSummary(row: RecipeRow): RecipeSummary {
     favoriteCount: row.favorite_count,
     ratingCount: row.rating_count,
     averageRating: row.average_rating,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function rowToUser(row: UserRow): UserView {
+  return {
+    id: row.id,
+    telegramId: row.telegram_id,
+    fullName: row.full_name,
+    username: row.username,
+    isActive: row.is_active === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

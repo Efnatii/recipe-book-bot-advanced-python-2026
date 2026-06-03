@@ -17,6 +17,8 @@ import {
   listCategories,
   listFavorites,
   listIngredients,
+  listUserRatings,
+  listUsers,
   onlineCrudOperationNames,
   rateRecipe,
   recipeStatistics,
@@ -91,9 +93,14 @@ async function route(request: Request, env: RuntimeEnv, ctx: ExecutionContext): 
     return json({ ok: true, data: await listIngredients(env.DB) });
   }
 
-  if (parts.length === 2 && parts[1] === "users" && request.method === "POST") {
-    const user = await ensureUser(env.DB, parseUserInput(await readJson(request)));
-    return json({ ok: true, data: user }, 201);
+  if (parts.length === 2 && parts[1] === "users") {
+    if (request.method === "GET") {
+      return json({ ok: true, data: await listUsers(env.DB) });
+    }
+    if (request.method === "POST") {
+      const user = await ensureUser(env.DB, parseUserInput(await readJson(request)));
+      return json({ ok: true, data: user }, 201);
+    }
   }
 
   if (parts.length === 2 && parts[1] === "recipes") {
@@ -149,6 +156,16 @@ async function route(request: Request, env: RuntimeEnv, ctx: ExecutionContext): 
   ) {
     const telegramId = parsePositiveInt(parts[2], "telegramId");
     return json({ ok: true, data: await listFavorites(env.DB, telegramId) });
+  }
+
+  if (
+    parts.length === 4 &&
+    parts[1] === "users" &&
+    parts[3] === "ratings" &&
+    request.method === "GET"
+  ) {
+    const telegramId = parsePositiveInt(parts[2], "telegramId");
+    return json({ ok: true, data: await listUserRatings(env.DB, telegramId) });
   }
 
   if (

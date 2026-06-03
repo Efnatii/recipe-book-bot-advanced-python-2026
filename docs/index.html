@@ -30,6 +30,10 @@
         <span id="statRecipes">0</span>
         <small>рецептов в D1</small>
       </div>
+      <div class="metric-card" data-tone="slate">
+        <span id="statUsers">0</span>
+        <small>пользователей</small>
+      </div>
       <div class="metric-card" data-tone="blue">
         <span id="statCategories">0</span>
         <small>категорий</small>
@@ -65,6 +69,25 @@
           <button id="modeAnalytics" class="segment" type="button" data-mode="analytics">Аналитика</button>
         </div>
 
+        <div class="user-panel" aria-label="Активный пользователь">
+          <div class="filter-title">Пользователь</div>
+          <label class="field">Активный профиль
+            <select id="userSelect"></select>
+          </label>
+          <div class="user-form-grid">
+            <label class="field">Telegram ID
+              <input id="userTelegramInput" type="number" min="1" step="1" inputmode="numeric" placeholder="1001">
+            </label>
+            <label class="field">Имя
+              <input id="userNameInput" maxlength="160" placeholder="Имя пользователя">
+            </label>
+          </div>
+          <label class="field">Username
+            <input id="userUsernameInput" maxlength="80" placeholder="username без @">
+          </label>
+          <button id="saveUserButton" class="secondary-button wide" type="button">Сохранить пользователя</button>
+        </div>
+
         <div class="filter-group">
           <div class="filter-title">Категории</div>
           <div class="category-list" id="categoryFilters"></div>
@@ -91,6 +114,8 @@
               <option value="category">по категории</option>
               <option value="minutes">по времени</option>
               <option value="rating">по рейтингу</option>
+              <option value="favoriteCount">по избранному</option>
+              <option value="myRating">по моей оценке</option>
               <option value="created">новые выше</option>
             </select>
           </label>

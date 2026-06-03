@@ -1,27 +1,42 @@
 const API_BASE = "https://recipe-book-online-api-2026.egory780.workers.dev";
-const DEMO_TELEGRAM_ID = 1001;
+const DEFAULT_USER = Object.freeze({
+  telegramId: 1001,
+  fullName: "Demo User",
+  username: "demo_recipe_user",
+});
+const STORAGE_USER_KEY = "recipeBookDashboardUserTelegramId";
 const PAGE_SIZE = 50;
+const INITIAL_VISIBLE_LIMIT = 36;
 
 const state = {
   recipes: [],
   categories: [],
   ingredients: [],
+  users: [],
+  currentUser: null,
   favorites: new Set(),
+  userRatings: new Map(),
   currentRecipe: null,
   stats: null,
   activeCategoryId: null,
   mode: "catalog",
   detailTab: "detail",
-  visibleLimit: 36,
+  visibleLimit: INITIAL_VISIBLE_LIMIT,
 };
 
 const elements = {
   connectionStatus: document.querySelector("#connectionStatus"),
   statRecipes: document.querySelector("#statRecipes"),
+  statUsers: document.querySelector("#statUsers"),
   statCategories: document.querySelector("#statCategories"),
   statIngredients: document.querySelector("#statIngredients"),
   statFavorites: document.querySelector("#statFavorites"),
   statRatings: document.querySelector("#statRatings"),
+  userSelect: document.querySelector("#userSelect"),
+  userTelegramInput: document.querySelector("#userTelegramInput"),
+  userNameInput: document.querySelector("#userNameInput"),
+  userUsernameInput: document.querySelector("#userUsernameInput"),
+  saveUserButton: document.querySelector("#saveUserButton"),
   categoryFilters: document.querySelector("#categoryFilters"),
   categoryOptions: document.querySelector("#categoryOptions"),
   difficultyFilter: document.querySelector("#difficultyFilter"),
@@ -65,8 +80,10 @@ function boot() {
   elements.difficultyFilter.addEventListener("change", resetLimitAndRender);
   elements.timeFilter.addEventListener("change", resetLimitAndRender);
   elements.sortSelect.addEventListener("change", resetLimitAndRender);
+  elements.userSelect.addEventListener("change", () => switchUser(Number(elements.userSelect.value)));
+  elements.saveUserButton.addEventListener("click", () => saveDashboardUser());
   elements.loadMoreButton.addEventListener("click", () => {
-    state.visibleLimit += 36;
+    state.visibleLimit += INITIAL_VISIBLE_LIMIT;
     renderWorkspace();
   });
   elements.recipeForm.addEventListener("submit", (event) => saveRecipe(event));
@@ -84,19 +101,20 @@ async function loadAll() {
   setStatus("Синхронизация", "");
   setBusy(true);
   try {
-    await ensureDemoUser();
-    const [stats, categories, ingredients, favorites] = await Promise.all([
+    await ensureDefaultUser();
+    const [stats, users, categories, ingredients] = await Promise.all([
       api("/api/stats"),
+      api("/api/users"),
       api("/api/categories"),
       api("/api/ingredients"),
-      api(`/api/users/${DEMO_TELEGRAM_ID}/favorites`),
     ]);
     state.stats = stats;
+    state.users = users;
     state.categories = categories;
     state.ingredients = ingredients;
-    state.favorites = new Set(favorites.map((recipe) => recipe.id));
+    selectInitialUser();
+    await Promise.all([loadRecipeCatalogue(), loadUserState()]);
     renderStaticData();
-    await loadRecipeCatalogue();
     if (state.currentRecipe === null && state.recipes.length > 0) {
       await selectRecipe(state.recipes[0].id, { render: false });
     }
@@ -131,16 +149,72 @@ async function loadRecipeCatalogue() {
   state.recipes = recipes;
 }
 
+async function loadUsers() {
+  state.users = await api("/api/users");
+  if (state.currentUser !== null) {
+    state.currentUser =
+      state.users.find((user) => user.telegramId === state.currentUser.telegramId) ?? state.currentUser;
+  }
+}
+
+async function loadUserState() {
+  if (state.currentUser === null) {
+    state.favorites = new Set();
+    state.userRatings = new Map();
+    return;
+  }
+  const telegramId = state.currentUser.telegramId;
+  const [favorites, ratings] = await Promise.all([
+    api(`/api/users/${telegramId}/favorites`),
+    api(`/api/users/${telegramId}/ratings`),
+  ]);
+  state.favorites = new Set(favorites.map((recipe) => recipe.id));
+  state.userRatings = new Map(ratings.map((recipe) => [recipe.id, recipe.userRating]));
+}
+
+async function loadStatsAndUserState() {
+  if (state.currentUser === null) {
+    return;
+  }
+  const telegramId = state.currentUser.telegramId;
+  const [stats, favorites, ratings] = await Promise.all([
+    api("/api/stats"),
+    api(`/api/users/${telegramId}/favorites`),
+    api(`/api/users/${telegramId}/ratings`),
+  ]);
+  state.stats = stats;
+  state.favorites = new Set(favorites.map((recipe) => recipe.id));
+  state.userRatings = new Map(ratings.map((recipe) => [recipe.id, recipe.userRating]));
+}
+
 function renderStaticData() {
   const stats = state.stats ?? {};
   elements.statRecipes.textContent = stats.recipes ?? 0;
+  elements.statUsers.textContent = stats.users ?? state.users.length;
   elements.statCategories.textContent = stats.categories ?? 0;
   elements.statIngredients.textContent = stats.ingredients ?? 0;
   elements.statFavorites.textContent = stats.favorites ?? 0;
   elements.statRatings.textContent = stats.ratings ?? 0;
+  renderUsers();
   renderCategoryFilters();
   renderCategoryOptions();
   renderDifficultyOptions();
+}
+
+function renderUsers() {
+  const users = [...state.users];
+  if (state.currentUser !== null && !users.some((user) => user.telegramId === state.currentUser.telegramId)) {
+    users.unshift(state.currentUser);
+  }
+  elements.userSelect.replaceChildren(
+    ...users.map((user) => optionElement(String(user.telegramId), displayUserLabel(user))),
+  );
+  if (state.currentUser !== null) {
+    elements.userSelect.value = String(state.currentUser.telegramId);
+    elements.userTelegramInput.value = String(state.currentUser.telegramId);
+    elements.userNameInput.value = state.currentUser.fullName;
+    elements.userUsernameInput.value = state.currentUser.username ?? "";
+  }
 }
 
 function renderCategoryFilters() {
@@ -159,7 +233,7 @@ function categoryButton(label, categoryId) {
   button.setAttribute("aria-pressed", state.activeCategoryId === categoryId ? "true" : "false");
   button.addEventListener("click", () => {
     state.activeCategoryId = categoryId;
-    state.visibleLimit = 36;
+    state.visibleLimit = INITIAL_VISIBLE_LIMIT;
     renderCategoryFilters();
     renderWorkspace();
   });
@@ -192,11 +266,12 @@ function renderWorkspace() {
   elements.resultCount.textContent = `${shown} показано / ${recipes.length} найдено / ${total} всего`;
   elements.modeEyebrow.textContent = modeLabel(state.mode);
   elements.workspaceTitle.textContent = workspaceTitle();
+  elements.insightGrid.hidden = false;
   renderInsights(recipes);
   if (state.mode === "analytics") {
     elements.recipeList.hidden = true;
     elements.loadMoreButton.hidden = true;
-    elements.insightGrid.hidden = false;
+    elements.analyticsView.hidden = false;
     renderAnalytics();
     return;
   }
@@ -214,7 +289,7 @@ function renderModeButtons() {
 
 function setMode(mode) {
   state.mode = mode;
-  state.visibleLimit = 36;
+  state.visibleLimit = INITIAL_VISIBLE_LIMIT;
   if (mode === "analytics") {
     setDetailTab("detail");
   }
@@ -234,10 +309,10 @@ function modeLabel(mode) {
 function workspaceTitle() {
   const category = selectedCategoryName();
   if (state.mode === "favorites") {
-    return category === null ? "Избранные рецепты" : `Избранное: ${category}`;
+    return category === null ? `Избранное: ${shortUserLabel()}` : `Избранное: ${category}`;
   }
   if (state.mode === "analytics") {
-    return "Структура каталога";
+    return "Многопользовательская статистика";
   }
   return category === null ? "Все рецепты" : category;
 }
@@ -284,7 +359,21 @@ function sortRecipes(recipes, sortMode) {
       return left.cookingMinutes - right.cookingMinutes || collator.compare(left.title, right.title);
     }
     if (sortMode === "rating") {
-      return (right.averageRating ?? -1) - (left.averageRating ?? -1);
+      return (
+        (right.averageRating ?? -1) - (left.averageRating ?? -1) ||
+        right.ratingCount - left.ratingCount ||
+        collator.compare(left.title, right.title)
+      );
+    }
+    if (sortMode === "favoriteCount") {
+      return right.favoriteCount - left.favoriteCount || collator.compare(left.title, right.title);
+    }
+    if (sortMode === "myRating") {
+      return (
+        personalRatingValue(right.id) - personalRatingValue(left.id) ||
+        (right.averageRating ?? -1) - (left.averageRating ?? -1) ||
+        collator.compare(left.title, right.title)
+      );
     }
     if (sortMode === "created") {
       return Date.parse(right.createdAt) - Date.parse(left.createdAt);
@@ -297,11 +386,14 @@ function renderInsights(recipes) {
   const topCategory = topEntry(countBy(recipes, (recipe) => recipe.category));
   const avgTime = recipes.length === 0 ? 0 : Math.round(sum(recipes, "cookingMinutes") / recipes.length);
   const rated = recipes.filter((recipe) => recipe.averageRating !== null).length;
+  const currentRated = recipes.filter((recipe) => state.userRatings.has(recipe.id)).length;
   elements.insightGrid.replaceChildren(
     insightCard(String(recipes.length), "рецептов в текущем срезе"),
     insightCard(avgTime === 0 ? "-" : `${avgTime} мин`, "среднее время приготовления"),
     insightCard(topCategory === null ? "-" : topCategory[0], "самая активная категория"),
-    insightCard(String(rated), "рецептов с оценками"),
+    insightCard(String(rated), "рецептов с общими оценками"),
+    insightCard(String(currentRated), `оценок пользователя ${shortUserLabel()}`),
+    insightCard(String(state.favorites.size), `избранное пользователя ${shortUserLabel()}`),
   );
 }
 
@@ -320,13 +412,19 @@ function renderRecipeCards(recipes) {
   }
   elements.recipeList.replaceChildren(
     ...recipes.map((recipe) => {
+      const userRating = state.userRatings.get(recipe.id);
+      const isFavorite = state.favorites.has(recipe.id);
+      const personalChips = [
+        userRating ? `<span class="chip strong">моя оценка: ${userRating.stars}/5</span>` : "",
+        isFavorite ? '<span class="chip positive">в моем избранном</span>' : "",
+      ].join("");
       const button = document.createElement("button");
       button.type = "button";
       button.className = `recipe-card${state.currentRecipe?.id === recipe.id ? " active" : ""}`;
       button.innerHTML = `
         <span class="card-top">
           <strong>${escapeHtml(recipe.title)}</strong>
-          ${state.favorites.has(recipe.id) ? '<span class="favorite-dot">fav</span>' : ""}
+          ${isFavorite ? '<span class="favorite-dot" title="В избранном у выбранного пользователя">★</span>' : ""}
         </span>
         <span class="card-meta">
           <span class="chip">${escapeHtml(recipe.category)}</span>
@@ -336,7 +434,9 @@ function renderRecipeCards(recipes) {
         <span class="card-description">${escapeHtml(trimText(recipe.description, 96))}</span>
         <span class="chip-row">
           <span class="chip">${formatRating(recipe.averageRating)}</span>
-          <span class="chip">избранное: ${recipe.favoriteCount}</span>
+          <span class="chip">оценок: ${recipe.ratingCount}</span>
+          <span class="chip">избранное всего: ${recipe.favoriteCount}</span>
+          ${personalChips}
         </span>
       `;
       button.addEventListener("click", () => selectRecipe(recipe.id));
@@ -346,36 +446,61 @@ function renderRecipeCards(recipes) {
 }
 
 function resetLimitAndRender() {
-  state.visibleLimit = 36;
+  state.visibleLimit = INITIAL_VISIBLE_LIMIT;
   renderWorkspace();
 }
 
 function renderAnalytics() {
-  elements.analyticsView.hidden = false;
+  const stats = state.stats ?? {};
   const byCategory = entriesByCount(countBy(state.recipes, (recipe) => recipe.category));
   const byDifficulty = entriesByCount(countBy(state.recipes, (recipe) => recipe.difficulty));
   const fastRecipes = state.recipes.filter((recipe) => recipe.cookingMinutes <= 30).length;
   const topRated = [...state.recipes]
     .filter((recipe) => recipe.averageRating !== null)
-    .sort((left, right) => (right.averageRating ?? 0) - (left.averageRating ?? 0))
+    .sort((left, right) => (right.averageRating ?? 0) - (left.averageRating ?? 0) || right.ratingCount - left.ratingCount)
+    .slice(0, 6);
+  const topFavorite = [...state.recipes]
+    .filter((recipe) => recipe.favoriteCount > 0)
+    .sort((left, right) => right.favoriteCount - left.favoriteCount || (right.averageRating ?? 0) - (left.averageRating ?? 0))
+    .slice(0, 6);
+  const myRated = [...state.recipes]
+    .filter((recipe) => state.userRatings.has(recipe.id))
+    .sort((left, right) => personalRatingValue(right.id) - personalRatingValue(left.id))
     .slice(0, 6);
   const ingredients = state.ingredients.slice(0, 22);
   elements.analyticsView.innerHTML = `
+    <section class="analytics-section analytics-summary">
+      <h3>Сводка по всем пользователям</h3>
+      <div class="metric-inline-grid">
+        <span><strong>${stats.users ?? state.users.length}</strong><small>пользователей</small></span>
+        <span><strong>${stats.favorites ?? 0}</strong><small>избранных записей</small></span>
+        <span><strong>${stats.ratings ?? 0}</strong><small>оценок</small></span>
+        <span><strong>${stats.recipes ?? state.recipes.length}</strong><small>рецептов</small></span>
+      </div>
+      <p class="muted-line">Сейчас выбран ${escapeHtml(displayUserLabel(state.currentUser))}: ${state.favorites.size} в избранном, ${state.userRatings.size} оценок.</p>
+    </section>
     ${barSection("Рецепты по категориям", byCategory)}
     ${barSection("Сложность", byDifficulty)}
     <section class="analytics-section">
       <h3>Операционные показатели</h3>
       <div class="chip-row">
         <span class="chip">быстрых рецептов: ${fastRecipes}</span>
-        <span class="chip">избранных: ${state.favorites.size}</span>
+        <span class="chip">личных избранных: ${state.favorites.size}</span>
+        <span class="chip">личных оценок: ${state.userRatings.size}</span>
         <span class="chip">ингредиентов в справочнике: ${state.ingredients.length}</span>
       </div>
     </section>
     <section class="analytics-section">
-      <h3>Топ по рейтингу</h3>
-      ${topRated.length === 0 ? '<p class="empty-state">Оценок пока мало.</p>' : topRated
-        .map((recipe) => `<button class="ghost-button wide" type="button" data-analytics-recipe="${recipe.id}">${escapeHtml(recipe.title)} · ${formatRating(recipe.averageRating)}</button>`)
-        .join("")}
+      <h3>Топ по общему рейтингу</h3>
+      ${recipeButtonList(topRated, (recipe) => `${formatRating(recipe.averageRating)} · ${recipe.ratingCount} оценок`)}
+    </section>
+    <section class="analytics-section">
+      <h3>Топ по избранному</h3>
+      ${recipeButtonList(topFavorite, (recipe) => `${recipe.favoriteCount} добавлений · ${formatRating(recipe.averageRating)}`)}
+    </section>
+    <section class="analytics-section">
+      <h3>Лучшие оценки выбранного пользователя</h3>
+      ${recipeButtonList(myRated, (recipe) => `моя оценка ${personalRatingValue(recipe.id)}/5 · всего ${formatRating(recipe.averageRating)}`)}
     </section>
     <section class="analytics-section">
       <h3>Справочник ингредиентов</h3>
@@ -385,6 +510,21 @@ function renderAnalytics() {
   for (const button of elements.analyticsView.querySelectorAll("[data-analytics-recipe]")) {
     button.addEventListener("click", () => selectRecipe(Number(button.dataset.analyticsRecipe)));
   }
+}
+
+function recipeButtonList(recipes, metaMapper) {
+  if (recipes.length === 0) {
+    return '<p class="empty-state">Данных пока мало.</p>';
+  }
+  return recipes
+    .map(
+      (recipe) =>
+        `<button class="ghost-button wide analytics-recipe-button" type="button" data-analytics-recipe="${recipe.id}">
+          <span>${escapeHtml(recipe.title)}</span>
+          <small>${escapeHtml(metaMapper(recipe))}</small>
+        </button>`,
+    )
+    .join("");
 }
 
 function barSection(title, entries) {
@@ -435,16 +575,24 @@ function renderDetail() {
       </li>
     `)
     .join("");
-  const favoriteText = state.favorites.has(recipe.id) ? "Убрать из избранного" : "В избранное";
+  const isFavorite = state.favorites.has(recipe.id);
+  const userRating = state.userRatings.get(recipe.id);
+  const favoriteText = isFavorite ? "Убрать из моего избранного" : "В мое избранное";
   elements.recipeDetail.innerHTML = `
     <p class="detail-kicker">${escapeHtml(recipe.category)}</p>
     <h2>${escapeHtml(recipe.title)}</h2>
     <p class="detail-description">${escapeHtml(recipe.description)}</p>
+    <div class="user-context">
+      <span>Пользователь: ${escapeHtml(displayUserLabel(state.currentUser))}</span>
+      <strong>${userRating ? `моя оценка ${userRating.stars}/5` : "моя оценка не задана"}</strong>
+    </div>
     <div class="chip-row">
       <span class="chip">${recipe.cookingMinutes} мин</span>
       <span class="chip">${escapeHtml(recipe.difficulty)}</span>
       <span class="chip">${formatRating(recipe.averageRating)}</span>
-      <span class="chip">избранное: ${recipe.favoriteCount}</span>
+      <span class="chip">оценок всего: ${recipe.ratingCount}</span>
+      <span class="chip">избранное всего: ${recipe.favoriteCount}</span>
+      ${isFavorite ? '<span class="chip positive">в избранном выбранного пользователя</span>' : ""}
     </div>
     <div class="detail-actions">
       <button id="toggleFavoriteButton" class="secondary-button" type="button">${favoriteText}</button>
@@ -463,9 +611,11 @@ function renderDetail() {
     <h3 class="section-title">Шаги</h3>
     <p class="instructions">${escapeHtml(recipe.instructions)}</p>
   `;
+  const ratingSelect = document.querySelector("#ratingSelect");
+  ratingSelect.value = String(userRating?.stars ?? 5);
   document.querySelector("#toggleFavoriteButton").addEventListener("click", toggleCurrentFavorite);
   document.querySelector("#rateRecipeButton").addEventListener("click", () => {
-    const stars = Number(document.querySelector("#ratingSelect").value);
+    const stars = Number(ratingSelect.value);
     rateCurrentRecipe(stars);
   });
   document.querySelector("#openEditorButton").addEventListener("click", () => setDetailTab("editor"));
@@ -527,12 +677,11 @@ async function saveRecipe(event) {
   try {
     const recipe = readForm();
     const recipeId = elements.recipeId.value;
-    const path = recipeId
-      ? `/api/recipes/${recipeId}`
-      : `/api/recipes?authorTelegramId=${DEMO_TELEGRAM_ID}`;
+    const telegramId = requireCurrentTelegramId();
+    const path = recipeId ? `/api/recipes/${recipeId}` : `/api/recipes?authorTelegramId=${telegramId}`;
     const method = recipeId ? "PUT" : "POST";
     const saved = await api(path, { method, body: recipe });
-    await Promise.all([loadStatsAndFavorites(), loadRecipeCatalogue()]);
+    await Promise.all([loadStatsAndUserState(), loadRecipeCatalogue()]);
     renderStaticData();
     await selectRecipe(saved.id, { render: false });
     setDetailTab("detail");
@@ -556,7 +705,7 @@ async function deleteCurrentRecipe() {
     await api(`/api/recipes/${recipeId}`, { method: "DELETE" });
     state.currentRecipe = null;
     clearForm();
-    await Promise.all([loadStatsAndFavorites(), loadRecipeCatalogue()]);
+    await Promise.all([loadStatsAndUserState(), loadRecipeCatalogue()]);
     renderStaticData();
     setDetailTab("detail");
     renderWorkspace();
@@ -574,15 +723,16 @@ async function toggleCurrentFavorite() {
   if (recipeId === undefined) {
     return;
   }
+  const telegramId = requireCurrentTelegramId();
   const method = state.favorites.has(recipeId) ? "DELETE" : "POST";
   try {
-    await api(`/api/users/${DEMO_TELEGRAM_ID}/favorites/${recipeId}`, { method });
-    await loadStatsAndFavorites();
+    await api(`/api/users/${telegramId}/favorites/${recipeId}`, { method });
+    await loadStatsAndUserState();
     await selectRecipe(recipeId, { render: false });
     renderStaticData();
     renderWorkspace();
     renderDetail();
-    showToast(method === "POST" ? "Добавлено в избранное" : "Удалено из избранного");
+    showToast(method === "POST" ? "Добавлено в избранное выбранного пользователя" : "Удалено из избранного выбранного пользователя");
   } catch (error) {
     showToast(error instanceof Error ? error.message : "Не удалось обновить избранное");
   }
@@ -593,29 +743,79 @@ async function rateCurrentRecipe(stars) {
   if (recipeId === undefined) {
     return;
   }
+  const telegramId = requireCurrentTelegramId();
   try {
-    await api(`/api/users/${DEMO_TELEGRAM_ID}/ratings/${recipeId}`, {
+    await api(`/api/users/${telegramId}/ratings/${recipeId}`, {
       method: "POST",
-      body: { stars, comment: "Оценка из онлайн-dashboard" },
+      body: { stars, comment: `Оценка ${shortUserLabel()} из онлайн-dashboard` },
     });
-    await loadStatsAndFavorites();
+    await loadStatsAndUserState();
     await selectRecipe(recipeId, { render: false });
     renderStaticData();
     renderWorkspace();
     renderDetail();
-    showToast(`Оценка ${stars}/5 сохранена`);
+    showToast(`Оценка ${stars}/5 сохранена для выбранного пользователя`);
   } catch (error) {
     showToast(error instanceof Error ? error.message : "Не удалось сохранить оценку");
   }
 }
 
-async function loadStatsAndFavorites() {
-  const [stats, favorites] = await Promise.all([
-    api("/api/stats"),
-    api(`/api/users/${DEMO_TELEGRAM_ID}/favorites`),
-  ]);
-  state.stats = stats;
-  state.favorites = new Set(favorites.map((recipe) => recipe.id));
+async function switchUser(telegramId) {
+  const user = state.users.find((item) => item.telegramId === telegramId);
+  if (user === undefined) {
+    return;
+  }
+  state.currentUser = user;
+  window.localStorage.setItem(STORAGE_USER_KEY, String(user.telegramId));
+  setBusy(true);
+  try {
+    await loadUserState();
+    renderUsers();
+    renderWorkspace();
+    renderDetail();
+    showToast(`Пользователь переключен: ${displayUserLabel(user)}`);
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "Не удалось переключить пользователя");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function saveDashboardUser() {
+  const telegramId = Number(elements.userTelegramInput.value);
+  const fullName = elements.userNameInput.value.trim();
+  const username = normalizeUsername(elements.userUsernameInput.value);
+  if (!Number.isInteger(telegramId) || telegramId <= 0) {
+    showToast("Укажите корректный Telegram ID");
+    return;
+  }
+  if (fullName.length === 0) {
+    showToast("Укажите имя пользователя");
+    return;
+  }
+  setBusy(true);
+  try {
+    await api("/api/users", {
+      method: "POST",
+      body: { telegramId, fullName, username },
+    });
+    await loadUsers();
+    state.currentUser = state.users.find((user) => user.telegramId === telegramId) ?? {
+      telegramId,
+      fullName,
+      username,
+    };
+    window.localStorage.setItem(STORAGE_USER_KEY, String(telegramId));
+    await loadStatsAndUserState();
+    renderStaticData();
+    renderWorkspace();
+    renderDetail();
+    showToast("Пользователь сохранен");
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "Не удалось сохранить пользователя");
+  } finally {
+    setBusy(false);
+  }
 }
 
 function readForm() {
@@ -643,10 +843,10 @@ function parseIngredients(value) {
     });
 }
 
-async function ensureDemoUser() {
+async function ensureDefaultUser() {
   await api("/api/users", {
     method: "POST",
-    body: { telegramId: DEMO_TELEGRAM_ID, fullName: "Demo User", username: "demo_recipe_user" },
+    body: DEFAULT_USER,
   });
 }
 
@@ -674,6 +874,8 @@ function setBusy(isBusy) {
   elements.deleteButton.disabled = isBusy;
   elements.refreshButton.disabled = isBusy;
   elements.newButton.disabled = isBusy;
+  elements.saveUserButton.disabled = isBusy;
+  elements.userSelect.disabled = isBusy;
 }
 
 function showToast(message) {
@@ -683,6 +885,24 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => {
     elements.toast.classList.remove("show");
   }, 2600);
+}
+
+function selectInitialUser() {
+  const stored = Number(window.localStorage.getItem(STORAGE_USER_KEY));
+  const user =
+    state.users.find((item) => Number.isInteger(stored) && item.telegramId === stored) ??
+    state.users.find((item) => item.telegramId === DEFAULT_USER.telegramId) ??
+    state.users[0] ??
+    DEFAULT_USER;
+  state.currentUser = user;
+  window.localStorage.setItem(STORAGE_USER_KEY, String(user.telegramId));
+}
+
+function requireCurrentTelegramId() {
+  if (state.currentUser === null) {
+    throw new Error("Выберите пользователя");
+  }
+  return state.currentUser.telegramId;
 }
 
 function selectedCategoryName() {
@@ -725,7 +945,17 @@ function sum(items, key) {
 }
 
 function upsertSummary(recipe) {
-  state.recipes = state.recipes.map((item) => (item.id === recipe.id ? summaryFromDetails(recipe) : item));
+  let replaced = false;
+  state.recipes = state.recipes.map((item) => {
+    if (item.id === recipe.id) {
+      replaced = true;
+      return summaryFromDetails(recipe);
+    }
+    return item;
+  });
+  if (!replaced) {
+    state.recipes.unshift(summaryFromDetails(recipe));
+  }
 }
 
 function summaryFromDetails(recipe) {
@@ -743,6 +973,30 @@ function summaryFromDetails(recipe) {
     createdAt: recipe.createdAt,
     updatedAt: recipe.updatedAt,
   };
+}
+
+function personalRatingValue(recipeId) {
+  return state.userRatings.get(recipeId)?.stars ?? -1;
+}
+
+function displayUserLabel(user) {
+  if (user === null || user === undefined) {
+    return "пользователь не выбран";
+  }
+  const username = user.username ? `@${user.username}` : `id ${user.telegramId}`;
+  return `${user.fullName} · ${username}`;
+}
+
+function shortUserLabel() {
+  if (state.currentUser === null) {
+    return "не выбран";
+  }
+  return state.currentUser.username ? `@${state.currentUser.username}` : state.currentUser.fullName;
+}
+
+function normalizeUsername(value) {
+  const normalized = value.trim().replace(/^@+/, "");
+  return normalized.length === 0 ? null : normalized;
 }
 
 function formatRating(value) {
