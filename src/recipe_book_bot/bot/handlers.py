@@ -30,6 +30,7 @@ def create_router(service: RecipeBookService) -> Router:
     @router.message(CommandStart())
     async def start(message: Message) -> None:
         if message.from_user is not None:
+            # SQLAlchemy work is synchronous, so handlers offload service calls from the event loop.
             await asyncio.to_thread(
                 service.ensure_user,
                 message.from_user.id,
@@ -154,6 +155,7 @@ def create_router(service: RecipeBookService) -> Router:
         if callback.data is None:
             await callback.answer("Не удалось выполнить действие", show_alert=True)
             return
+        # Callback data uses stable prefixes that are covered by handler tests.
         recipe_id = int(callback.data.split(":")[1])
         recipe = await asyncio.to_thread(service.get_recipe, recipe_id)
         if recipe is None:

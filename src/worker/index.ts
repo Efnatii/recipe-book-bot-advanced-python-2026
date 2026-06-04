@@ -61,6 +61,7 @@ async function route(request: Request, env: RuntimeEnv, ctx: ExecutionContext): 
   const url = new URL(request.url);
   const parts = url.pathname.split("/").filter(Boolean);
 
+  // Public root response is deliberately small: it lets CI and a browser verify deployment.
   if (url.pathname === "/" && request.method === "GET") {
     return json({
       ok: true,
@@ -97,6 +98,7 @@ async function route(request: Request, env: RuntimeEnv, ctx: ExecutionContext): 
   }
 
   if (parts.length === 3 && parts[1] === "dashboard-auth") {
+    // Dashboard auth is routed separately so CRUD endpoints stay independent from panel sessions.
     if (parts[2] === "status" && request.method === "GET") {
       const sessionToken = readDashboardSessionToken(request);
       const expiresAt =

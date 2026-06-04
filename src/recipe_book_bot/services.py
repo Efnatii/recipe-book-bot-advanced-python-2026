@@ -20,6 +20,7 @@ from recipe_book_bot.schemas import RecipeInput, RecipeUpdate
 
 SessionFactory = Callable[[], Session]
 
+# The report and tests use this tuple as a compact contract for the service layer.
 CRUD_OPERATION_NAMES = (
     "ensure_user",
     "get_user_by_telegram_id",
@@ -69,6 +70,7 @@ class RecipeBookService:
             yield session
             session.commit()
         except Exception:
+            # Keep failed operations atomic: partial recipe/ingredient writes must not leak.
             session.rollback()
             raise
         finally:
@@ -168,6 +170,7 @@ class RecipeBookService:
             author = None
             if author_telegram_id is not None:
                 author = session.scalar(select(User).where(User.telegram_id == author_telegram_id))
+            # Category and ingredient rows are resolved inside the same transaction as the recipe.
             category = self._get_or_create_category(session, data.category)
             recipe = Recipe(
                 title=data.title,
@@ -218,6 +221,7 @@ class RecipeBookService:
             if category_name is not None:
                 recipe.category = self._get_or_create_category(session, category_name)
             if ingredients is not None:
+                # Reuse RecipeInput validation for a full ingredient-list replacement.
                 replacement = RecipeInput(
                     title=recipe.title,
                     description=recipe.description,
@@ -282,6 +286,7 @@ class RecipeBookService:
         with self._session() as session:
             user = self._require_user(session, telegram_id)
             self._require_recipe(session, recipe_id)
+            # One user can keep only one rating per recipe; a repeated vote updates it.
             rating = session.get(Rating, {"user_id": user.id, "recipe_id": recipe_id})
             if rating is None:
                 rating = Rating(user_id=user.id, recipe_id=recipe_id, stars=stars, comment=comment)
@@ -354,6 +359,7 @@ class RecipeBookService:
     def _replace_recipe_ingredients(
         self, session: Session, recipe: Recipe, data: RecipeInput
     ) -> None:
+        # SQLAlchemy cascades delete old link rows; ingredient dictionary rows are reused.
         recipe.ingredients.clear()
         for item in data.ingredients:
             ingredient = self._get_or_create_ingredient(session, item.name, item.unit)
