@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm test",
     "worker:deploy": "wrangler deploy",
     "db:migrate:local": "wrangler d1 migrations apply recipe-book-online-2026 --local",
     "db:migrate:remote": "wrangler d1 migrations apply recipe-book-online-2026 --remote",

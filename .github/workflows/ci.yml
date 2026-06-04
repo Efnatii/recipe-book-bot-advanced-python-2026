@@ -52,3 +52,6 @@ jobs:
 
       - name: Typecheck Worker
         run: npm run typecheck
+
+      - name: Test Worker and dashboard contract
+        run: npm test
