@@ -6,14 +6,14 @@
 
 ## Что реализовано
 
-- Модульная Python-архитектура: конфигурация, ORM-модели, сервисный CRUD-слой, Telegram UI, CLI.
+- Модульная Python-архитектура: конфигурация, ORM-модели, сервисный CRUD-слой, Telegram-интерфейс, CLI.
 - SQLite-база данных на SQLAlchemy 2.x: 7 таблиц и 20+ CRUD/аналитических операций.
 - Telegram-бот на aiogram 3: просмотр рецептов, поиск, карточки, избранное.
 - CLI на Typer/Rich для инициализации БД, загрузки контрольных данных и локальной проверки.
 - Онлайн-контур на Cloudflare: Worker API, D1, Telegram webhook и веб-панель Pages.
 - Проверки качества: pytest, coverage, ruff, mypy.
 - GitHub Actions: ruff, mypy, pytest и TypeScript typecheck.
-- Cloudflare Pages: публикация web-клиента из `docs/`.
+- Cloudflare Pages: публикация веб-клиента из `docs/`.
 
 ## Быстрый старт
 
@@ -57,7 +57,7 @@ worker/
   index.ts           маршруты Cloudflare Worker API
   repository.ts      SQL/CRUD слой для D1
   telegram.ts        адаптер Telegram webhook
-  validation.ts      JSON input validation
+  validation.ts      проверка входных JSON
 docs/
   index.html         веб-панель
   assets/app.js      клиент Worker API
@@ -91,7 +91,7 @@ uv run pytest
 npm run typecheck
 ```
 
-## Deploy
+## Публикация
 
 Cloudflare Pages: веб-панель https://recipe-book-bot-advanced-python-2026.pages.dev/
 
@@ -101,9 +101,9 @@ Cloudflare Worker API: https://recipe-book-online-api-2026.egory780.workers.dev/
 
 - Cloudflare D1 для хранения рецептов, пользователей, избранного и рейтингов.
 - Cloudflare Worker API для CRUD, статистики и Telegram webhook.
-- Cloudflare Pages как web-клиент.
+- Cloudflare Pages как веб-клиент.
 
-Ручной deploy:
+Ручная публикация:
 
 ```powershell
 npm run db:migrate:remote
