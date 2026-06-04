@@ -1,0 +1,1223 @@
+{
+  "generatedAt": "2026-06-04T10:19:48",
+  "baseUrl": "https://recipe-book-online-api-2026.egory780.workers.dev",
+  "testTitle": "API Evidence Recipe 20260604_101944",
+  "cases": [
+    {
+      "group": "Read/list endpoints",
+      "title": "Root metadata",
+      "method": "GET",
+      "path": "/",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "name": "Recipe Book Online API",
+        "site": "https://recipe-book-bot-advanced-python-2026.pages.dev",
+        "endpoints": [
+          "/api/health",
+          "/api/stats",
+          "/api/recipes",
+          "/api/categories",
+          "/api/dashboard-auth/status"
+        ]
+      }
+    },
+    {
+      "group": "Read/list endpoints",
+      "title": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/api/health",
+      "status": 204,
+      "requestBody": null,
+      "responseBody": null
+    },
+    {
+      "group": "Read/list endpoints",
+      "title": "Health",
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "storage": "Cloudflare D1",
+        "crudOperations": [
+          "health",
+          "recipe_statistics",
+          "list_categories",
+          "list_ingredients",
+          "search_recipes",
+          "get_recipe",
+          "create_recipe",
+          "update_recipe",
+          "delete_recipe",
+          "list_users",
+          "ensure_user",
+          "list_favorites",
+          "add_favorite",
+          "remove_favorite",
+          "list_user_ratings",
+          "rate_recipe",
+          "average_rating",
+          "telegram_webhook",
+          "dashboard_auth_status",
+          "dashboard_auth_setup",
+          "dashboard_auth_login"
+        ]
+      }
+    },
+    {
+      "group": "Read/list endpoints",
+      "title": "D1 statistics",
+      "method": "GET",
+      "path": "/api/stats",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "data": {
+          "users": 2,
+          "categories": 10,
+          "ingredients": 72,
+          "recipeIngredients": 488,
+          "recipes": 123,
+          "favorites": 1,
+          "ratings": 5,
+          "crudOperations": 21
+        }
+      }
+    },
+    {
+      "group": "Read/list endpoints",
+      "title": "Categories",
+      "method": "GET",
+      "path": "/api/categories",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "data": [
+          {
+            "id": 11,
+            "name": "выпечка"
+          },
+          {
+            "id": 9,
+            "name": "гарниры"
+          },
+          {
+            "id": 8,
+            "name": "горячие блюда"
+          },
+          {
+            "id": 3,
+            "name": "десерты"
+          },
+          {
+            "id": 1,
+            "name": "завтраки"
+          },
+          {
+            "id": 14,
+            "name": "закуски"
+          },
+          {
+            "id": 13,
+            "name": "напитки"
+          },
+          {
+            "id": 10,
+            "name": "паста и крупы"
+          },
+          {
+            "id": 7,
+            "name": "салаты"
+          },
+          {
+            "id": 2,
+            "name": "супы"
+          }
+        ]
+      }
+    },
+    {
+      "group": "Read/list endpoints",
+      "title": "Ingredients",
+      "method": "GET",
+      "path": "/api/ingredients",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "data": [
+          {
+            "id": 11,
+            "name": "бананы",
+            "unit": "шт"
+          },
+          {
+            "id": 12,
+            "name": "батат",
+            "unit": "г"
+          },
+          {
+            "id": 13,
+            "name": "булгур",
+            "unit": "г"
+          },
+          {
+            "id": 14,
+            "name": "бульон",
+            "unit": "мл"
+          },
+          {
+            "id": 15,
+            "name": "вода",
+            "unit": "мл"
+          },
+          {
+            "id": 16,
+            "name": "говядина",
+            "unit": "г"
+          },
+          {
+            "id": 17,
+            "name": "горох",
+            "unit": "г"
+          },
+          {
+            "id": 18,
+            "name": "гречка",
+            "unit": "г"
+          },
+          {
+            "id": 19,
+            "name": "грибы",
+            "unit": "г"
+          },
+          {
+            "id": 20,
+            "name": "груши",
+            "unit": "г"
+          },
+          {
+            "id": 21,
+            "name": "желатин",
+            "unit": "г"
+          },
+          {
+            "id": 22,
+            "name": "зелень",
+            "unit": "г"
+          },
+          {
+            "id": 23,
+            "name": "имбирь",
+            "unit": "г"
+          },
+          {
+            "id": 24,
+            "name": "индейка",
+            "unit": "г"
+          },
+          {
+            "id": 25,
+            "name": "йогурт",
+            "unit": "г"
+          },
+          {
+            "id": 26,
+            "name": "какао",
+            "unit": "г"
+          },
+          {
+            "id": 27,
+            "name": "капуста",
+            "unit": "г"
+          },
+          {
+            "id": 28,
+            "name": "карамель",
+            "unit": "г"
+          },
+          {
+            "id": 29,
+            "name": "картофель",
+            "unit": "г"
+          },
+          {
+            "id": 30,
+            "name": "кефир",
+            "unit": "мл"
+          },
+          {
+            "id": 31,
+            "name": "киноа",
+            "unit": "г"
+          },
+          {
+            "id": 32,
+            "name": "клюква",
+            "unit": "г"
+          },
+          {
+            "id": 33,
+            "name": "кокосовая стружка",
+            "unit": "г"
+          },
+          {
+            "id": 34,
+            "name": "корица",
+            "unit": "г"
+          },
+          {
+            "id": 35,
+            "name": "кофе",
+            "unit": "г"
+          },
+          {
+            "id": 4,
+            "name": "курица",
+            "unit": "г"
+          },
+          {
+            "id": 37,
+            "name": "кус-кус",
+            "unit": "г"
+          },
+          {
+            "id": 38,
+            "name": "лаваш",
+            "unit": "г"
+          },
+          {
+            "id": 5,
+            "name": "лапша",
+            "unit": "г"
+          },
+          {
+            "id": 40,
+            "name": "лимон",
+            "unit": "шт"
+          },
+          {
+            "id": 41,
+            "name": "листья салата",
+            "unit": "г"
+          },
+          {
+            "id": 42,
+            "name": "лук",
+            "unit": "шт"
+          },
+          {
+            "id": 43,
+            "name": "мед",
+            "unit": "г"
+          },
+          {
+            "id": 2,
+            "name": "молоко",
+            "unit": "мл"
+          },
+          {
+            "id": 6,
+            "name": "морковь",
+            "unit": "г"
+          },
+          {
+            "id": 3,
+            "name": "мука",
+            "unit": "г"
+          },
+          {
+            "id": 47,
+            "name": "нут",
+            "unit": "г"
+          },
+          {
+            "id": 48,
+            "name": "ньокки",
+            "unit": "г"
+          },
+          {
+            "id": 49,
+            "name": "облепиха",
+            "unit": "г"
+          },
+          {
+            "id": 50,
+            "name": "овсяные хлопья",
+            "unit": "г"
+          },
+          {
+            "id": 51,
+            "name": "огурцы",
+            "unit": "г"
+          },
+          {
+            "id": 52,
+            "name": "оливки",
+            "unit": "г"
+          },
+          {
+            "id": 53,
+            "name": "паста",
+            "unit": "г"
+          },
+          {
+            "id": 54,
+            "name": "перец",
+            "unit": "г"
+          },
+          {
+            "id": 55,
+            "name": "перловка",
+            "unit": "г"
+          },
+          {
+            "id": 56,
+            "name": "персики",
+            "unit": "г"
+          },
+          {
+            "id": 57,
+            "name": "песто",
+            "unit": "г"
+          },
+          {
+            "id": 58,
+            "name": "печенье",
+            "unit": "г"
+          },
+          {
+            "id": 59,
+            "name": "помидоры",
+            "unit": "г"
+          },
+          {
+            "id": 60,
+            "name": "рис",
+            "unit": "г"
+          },
+          {
+            "id": 61,
+            "name": "рыба",
+            "unit": "г"
+          },
+          {
+            "id": 8,
+            "name": "сахар",
+            "unit": "г"
+          },
+          {
+            "id": 63,
+            "name": "свекла",
+            "unit": "г"
+          },
+          {
+            "id": 64,
+            "name": "сливки",
+            "unit": "мл"
+          },
+          {
+            "id": 65,
+            "name": "спагетти",
+            "unit": "г"
+          },
+          {
+            "id": 66,
+            "name": "сыр",
+            "unit": "г"
+          },
+          {
+            "id": 67,
+            "name": "тарталетки",
+            "unit": "шт"
+          },
+          {
+            "id": 7,
+            "name": "творог",
+            "unit": "г"
+          },
+          {
+            "id": 69,
+            "name": "томаты",
+            "unit": "г"
+          },
+          {
+            "id": 70,
+            "name": "тунец",
+            "unit": "г"
+          },
+          {
+            "id": 71,
+            "name": "тыква",
+            "unit": "г"
+          },
+          {
+            "id": 72,
+            "name": "удон",
+            "unit": "г"
+          },
+          {
+            "id": 73,
+            "name": "фарш",
+            "unit": "г"
+          },
+          {
+            "id": 74,
+            "name": "фасоль",
+            "unit": "г"
+          },
+          {
+            "id": 75,
+            "name": "хлеб",
+            "unit": "г"
+          },
+          {
+            "id": 76,
+            "name": "цветная капуста",
+            "unit": "г"
+          },
+          {
+            "id": 77,
+            "name": "чеснок",
+            "unit": "зуб."
+          },
+          {
+            "id": 78,
+            "name": "чечевица",
+            "unit": "г"
+          },
+          {
+            "id": 79,
+            "name": "шоколад",
+            "unit": "г"
+          },
+          {
+            "id": 80,
+            "name": "яблоки",
+            "unit": "г"
+          },
+          {
+            "id": 9,
+            "name": "ягоды",
+            "unit": "г"
+          },
+          {
+            "id": 1,
+            "name": "яйца",
+            "unit": "шт"
+          }
+        ]
+      }
+    },
+    {
+      "group": "Read/list endpoints",
+      "title": "Users",
+      "method": "GET",
+      "path": "/api/users",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "data": [
+          {
+            "id": 1,
+            "telegramId": 1001,
+            "fullName": "Редактор рецептов",
+            "username": "recipe_editor",
+            "isActive": true,
+            "createdAt": "2026-06-03 09:12:44",
+            "updatedAt": "2026-06-04 07:19:43"
+          },
+          {
+            "id": 5,
+            "telegramId": 6680149174,
+            "fullName": "ЕГОР ГОРОХОВИЦКИЙ",
+            "username": "efnatii",
+            "isActive": true,
+            "createdAt": "2026-06-03 10:41:41",
+            "updatedAt": "2026-06-03 16:07:09"
+          }
+        ]
+      }
+    },
+    {
+      "group": "Read/list endpoints",
+      "title": "Recipes page",
+      "method": "GET",
+      "path": "/api/recipes?limit=2&offset=0",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "data": [
+          {
+            "id": 108,
+            "title": "Айс-ти персиковый",
+            "description": "Холодный чай с фруктовым вкусом.",
+            "cookingMinutes": 15,
+            "difficulty": "простая",
+            "category": "напитки",
+            "authorName": "Редактор рецептов",
+            "favoriteCount": 0,
+            "ratingCount": 0,
+            "averageRating": null,
+            "createdAt": "2026-06-03 11:52:48",
+            "updatedAt": "2026-06-03 11:52:48"
+          },
+          {
+            "id": 78,
+            "title": "Банановый хлеб",
+            "description": "Ароматный кекс с бананом.",
+            "cookingMinutes": 60,
+            "difficulty": "простая",
+            "category": "выпечка",
+            "authorName": "Редактор рецептов",
+            "favoriteCount": 0,
+            "ratingCount": 1,
+            "averageRating": 5,
+            "createdAt": "2026-06-03 11:52:48",
+            "updatedAt": "2026-06-03 11:52:48"
+          }
+        ]
+      }
+    },
+    {
+      "group": "Read/list endpoints",
+      "title": "Recipes search",
+      "method": "GET",
+      "path": "/api/recipes?limit=2&query=%D0%90%D0%B9%D1%81-%D1%82%D0%B8",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "data": [
+          {
+            "id": 108,
+            "title": "Айс-ти персиковый",
+            "description": "Холодный чай с фруктовым вкусом.",
+            "cookingMinutes": 15,
+            "difficulty": "простая",
+            "category": "напитки",
+            "authorName": "Редактор рецептов",
+            "favoriteCount": 0,
+            "ratingCount": 0,
+            "averageRating": null,
+            "createdAt": "2026-06-03 11:52:48",
+            "updatedAt": "2026-06-03 11:52:48"
+          }
+        ]
+      }
+    },
+    {
+      "group": "Write/action endpoints",
+      "title": "Ensure user",
+      "method": "POST",
+      "path": "/api/users",
+      "status": 201,
+      "requestBody": {
+        "telegramId": 1001,
+        "fullName": "Редактор рецептов",
+        "username": "recipe_editor"
+      },
+      "responseBody": {
+        "ok": true,
+        "data": {
+          "id": 1
+        }
+      }
+    },
+    {
+      "group": "Write/action endpoints",
+      "title": "Create recipe",
+      "method": "POST",
+      "path": "/api/recipes?authorTelegramId=1001",
+      "status": 201,
+      "requestBody": {
+        "title": "API Evidence Recipe 20260604_101944",
+        "description": "Temporary recipe used to prove Worker API endpoints.",
+        "instructions": "Create, update, favorite, rate and delete through HTTP API.",
+        "category": "выпечка",
+        "cookingMinutes": 12,
+        "difficulty": "easy",
+        "ingredients": [
+          {
+            "name": "бананы",
+            "quantity": 1,
+            "unit": "шт",
+            "note": null
+          },
+          {
+            "name": "батат",
+            "quantity": 2,
+            "unit": "г",
+            "note": "evidence"
+          }
+        ]
+      },
+      "responseBody": {
+        "ok": true,
+        "data": {
+          "id": 127,
+          "title": "API Evidence Recipe 20260604_101944",
+          "description": "Temporary recipe used to prove Worker API endpoints.",
+          "cookingMinutes": 12,
+          "difficulty": "easy",
+          "category": "выпечка",
+          "authorName": "Редактор рецептов",
+          "favoriteCount": 0,
+          "ratingCount": 0,
+          "averageRating": null,
+          "createdAt": "2026-06-04 07:20:41",
+          "updatedAt": "2026-06-04 07:20:41",
+          "instructions": "Create, update, favorite, rate and delete through HTTP API.",
+          "ingredients": [
+            {
+              "id": 11,
+              "name": "бананы",
+              "unit": "шт",
+              "quantity": 1,
+              "note": null
+            },
+            {
+              "id": 12,
+              "name": "батат",
+              "unit": "г",
+              "quantity": 2,
+              "note": "evidence"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "group": "Write/action endpoints",
+      "title": "Get recipe",
+      "method": "GET",
+      "path": "/api/recipes/127",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "data": {
+          "id": 127,
+          "title": "API Evidence Recipe 20260604_101944",
+          "description": "Temporary recipe used to prove Worker API endpoints.",
+          "cookingMinutes": 12,
+          "difficulty": "easy",
+          "category": "выпечка",
+          "authorName": "Редактор рецептов",
+          "favoriteCount": 0,
+          "ratingCount": 0,
+          "averageRating": null,
+          "createdAt": "2026-06-04 07:20:41",
+          "updatedAt": "2026-06-04 07:20:41",
+          "instructions": "Create, update, favorite, rate and delete through HTTP API.",
+          "ingredients": [
+            {
+              "id": 11,
+              "name": "бананы",
+              "unit": "шт",
+              "quantity": 1,
+              "note": null
+            },
+            {
+              "id": 12,
+              "name": "батат",
+              "unit": "г",
+              "quantity": 2,
+              "note": "evidence"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "group": "Write/action endpoints",
+      "title": "Update recipe",
+      "method": "PUT",
+      "path": "/api/recipes/127",
+      "status": 200,
+      "requestBody": {
+        "title": "API Evidence Recipe 20260604_101944 updated",
+        "description": "Temporary recipe used to prove Worker API endpoints.",
+        "instructions": "Create, update, favorite, rate and delete through HTTP API.",
+        "category": "выпечка",
+        "cookingMinutes": 14,
+        "difficulty": "easy",
+        "ingredients": [
+          {
+            "name": "бананы",
+            "quantity": 1,
+            "unit": "шт",
+            "note": null
+          },
+          {
+            "name": "батат",
+            "quantity": 2,
+            "unit": "г",
+            "note": "evidence"
+          }
+        ]
+      },
+      "responseBody": {
+        "ok": true,
+        "data": {
+          "id": 127,
+          "title": "API Evidence Recipe 20260604_101944 updated",
+          "description": "Temporary recipe used to prove Worker API endpoints.",
+          "cookingMinutes": 14,
+          "difficulty": "easy",
+          "category": "выпечка",
+          "authorName": "Редактор рецептов",
+          "favoriteCount": 0,
+          "ratingCount": 0,
+          "averageRating": null,
+          "createdAt": "2026-06-04 07:20:41",
+          "updatedAt": "2026-06-04 07:20:42",
+          "instructions": "Create, update, favorite, rate and delete through HTTP API.",
+          "ingredients": [
+            {
+              "id": 11,
+              "name": "бананы",
+              "unit": "шт",
+              "quantity": 1,
+              "note": null
+            },
+            {
+              "id": 12,
+              "name": "батат",
+              "unit": "г",
+              "quantity": 2,
+              "note": "evidence"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "group": "Write/action endpoints",
+      "title": "Add favorite",
+      "method": "POST",
+      "path": "/api/users/1001/favorites/127",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true
+      }
+    },
+    {
+      "group": "Write/action endpoints",
+      "title": "List favorites",
+      "method": "GET",
+      "path": "/api/users/1001/favorites",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "data": [
+          {
+            "id": 127,
+            "title": "API Evidence Recipe 20260604_101944 updated",
+            "description": "Temporary recipe used to prove Worker API endpoints.",
+            "cookingMinutes": 14,
+            "difficulty": "easy",
+            "category": "выпечка",
+            "authorName": "Редактор рецептов",
+            "favoriteCount": 1,
+            "ratingCount": 0,
+            "averageRating": null,
+            "createdAt": "2026-06-04 07:20:41",
+            "updatedAt": "2026-06-04 07:20:42",
+            "instructions": "Create, update, favorite, rate and delete through HTTP API.",
+            "ingredients": [
+              {
+                "id": 11,
+                "name": "бананы",
+                "unit": "шт",
+                "quantity": 1,
+                "note": null
+              },
+              {
+                "id": 12,
+                "name": "батат",
+                "unit": "г",
+                "quantity": 2,
+                "note": "evidence"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Творожный десерт с ягодами",
+            "description": "Легкий десерт без выпечки.",
+            "cookingMinutes": 20,
+            "difficulty": "простая",
+            "category": "десерты",
+            "authorName": "Редактор рецептов",
+            "favoriteCount": 1,
+            "ratingCount": 1,
+            "averageRating": 5,
+            "createdAt": "2026-06-03 09:12:44",
+            "updatedAt": "2026-06-03 09:12:44",
+            "instructions": "Смешайте творог с сахаром, выложите ягоды сверху и охладите 15 минут.",
+            "ingredients": [
+              {
+                "id": 8,
+                "name": "сахар",
+                "unit": "г",
+                "quantity": 25,
+                "note": "по вкусу"
+              },
+              {
+                "id": 7,
+                "name": "творог",
+                "unit": "г",
+                "quantity": 250,
+                "note": null
+              },
+              {
+                "id": 9,
+                "name": "ягоды",
+                "unit": "г",
+                "quantity": 120,
+                "note": null
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "group": "Write/action endpoints",
+      "title": "Remove favorite",
+      "method": "DELETE",
+      "path": "/api/users/1001/favorites/127",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "deleted": true
+      }
+    },
+    {
+      "group": "Write/action endpoints",
+      "title": "Rate recipe",
+      "method": "POST",
+      "path": "/api/users/1001/ratings/127",
+      "status": 200,
+      "requestBody": {
+        "stars": 5,
+        "comment": "API evidence rating"
+      },
+      "responseBody": {
+        "ok": true,
+        "data": {
+          "averageRating": 5,
+          "ratingCount": 1
+        }
+      }
+    },
+    {
+      "group": "Write/action endpoints",
+      "title": "List ratings",
+      "method": "GET",
+      "path": "/api/users/1001/ratings",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "data": [
+          {
+            "id": 127,
+            "title": "API Evidence Recipe 20260604_101944 updated",
+            "description": "Temporary recipe used to prove Worker API endpoints.",
+            "cookingMinutes": 14,
+            "difficulty": "easy",
+            "category": "выпечка",
+            "authorName": "Редактор рецептов",
+            "favoriteCount": 0,
+            "ratingCount": 1,
+            "averageRating": 5,
+            "createdAt": "2026-06-04 07:20:41",
+            "updatedAt": "2026-06-04 07:20:42",
+            "instructions": "Create, update, favorite, rate and delete through HTTP API.",
+            "ingredients": [
+              {
+                "id": 11,
+                "name": "бананы",
+                "unit": "шт",
+                "quantity": 1,
+                "note": null
+              },
+              {
+                "id": 12,
+                "name": "батат",
+                "unit": "г",
+                "quantity": 2,
+                "note": "evidence"
+              }
+            ],
+            "userRating": {
+              "stars": 5,
+              "comment": "API evidence rating",
+              "createdAt": "2026-06-04 07:20:43",
+              "updatedAt": "2026-06-04 07:20:43"
+            }
+          },
+          {
+            "id": 78,
+            "title": "Банановый хлеб",
+            "description": "Ароматный кекс с бананом.",
+            "cookingMinutes": 60,
+            "difficulty": "простая",
+            "category": "выпечка",
+            "authorName": "Редактор рецептов",
+            "favoriteCount": 0,
+            "ratingCount": 1,
+            "averageRating": 5,
+            "createdAt": "2026-06-03 11:52:48",
+            "updatedAt": "2026-06-03 11:52:48",
+            "instructions": "Подготовьте ягоды, курица. Смешайте тесто и начинку, выложите в форму и выпекайте до румяной корочки.",
+            "ingredients": [
+              {
+                "id": 4,
+                "name": "курица",
+                "unit": "г",
+                "quantity": 240,
+                "note": null
+              },
+              {
+                "id": 6,
+                "name": "морковь",
+                "unit": "г",
+                "quantity": 90,
+                "note": null
+              },
+              {
+                "id": 8,
+                "name": "сахар",
+                "unit": "г",
+                "quantity": 60,
+                "note": null
+              },
+              {
+                "id": 9,
+                "name": "ягоды",
+                "unit": "г",
+                "quantity": 210,
+                "note": null
+              }
+            ],
+            "userRating": {
+              "stars": 5,
+              "comment": "Оценка @demo_recipe_user из онлайн-dashboard",
+              "createdAt": "2026-06-03 12:58:15",
+              "updatedAt": "2026-06-03 12:58:15"
+            }
+          },
+          {
+            "id": 3,
+            "title": "Творожный десерт с ягодами",
+            "description": "Легкий десерт без выпечки.",
+            "cookingMinutes": 20,
+            "difficulty": "простая",
+            "category": "десерты",
+            "authorName": "Редактор рецептов",
+            "favoriteCount": 1,
+            "ratingCount": 1,
+            "averageRating": 5,
+            "createdAt": "2026-06-03 09:12:44",
+            "updatedAt": "2026-06-03 09:12:44",
+            "instructions": "Смешайте творог с сахаром, выложите ягоды сверху и охладите 15 минут.",
+            "ingredients": [
+              {
+                "id": 8,
+                "name": "сахар",
+                "unit": "г",
+                "quantity": 25,
+                "note": "по вкусу"
+              },
+              {
+                "id": 7,
+                "name": "творог",
+                "unit": "г",
+                "quantity": 250,
+                "note": null
+              },
+              {
+                "id": 9,
+                "name": "ягоды",
+                "unit": "г",
+                "quantity": 120,
+                "note": null
+              }
+            ],
+            "userRating": {
+              "stars": 5,
+              "comment": "Оценка из онлайн-дашборда",
+              "createdAt": "2026-06-03 11:02:47",
+              "updatedAt": "2026-06-03 11:02:47"
+            }
+          },
+          {
+            "id": 2,
+            "title": "Куриный суп с лапшой",
+            "description": "Домашний суп с курицей, овощами и лапшой.",
+            "cookingMinutes": 45,
+            "difficulty": "средняя",
+            "category": "супы",
+            "authorName": "Редактор рецептов",
+            "favoriteCount": 0,
+            "ratingCount": 1,
+            "averageRating": 5,
+            "createdAt": "2026-06-03 09:12:44",
+            "updatedAt": "2026-06-03 09:12:44",
+            "instructions": "Отварите курицу, добавьте морковь и лапшу, варите до готовности.",
+            "ingredients": [
+              {
+                "id": 4,
+                "name": "курица",
+                "unit": "г",
+                "quantity": 300,
+                "note": "филе или бедро"
+              },
+              {
+                "id": 5,
+                "name": "лапша",
+                "unit": "г",
+                "quantity": 120,
+                "note": null
+              },
+              {
+                "id": 6,
+                "name": "морковь",
+                "unit": "г",
+                "quantity": 100,
+                "note": null
+              }
+            ],
+            "userRating": {
+              "stars": 5,
+              "comment": "Оценка из онлайн-дашборда",
+              "createdAt": "2026-06-03 09:12:44",
+              "updatedAt": "2026-06-03 11:02:45"
+            }
+          },
+          {
+            "id": 1,
+            "title": "Омлет с молоком",
+            "description": "Быстрый белковый завтрак на каждый день.",
+            "cookingMinutes": 10,
+            "difficulty": "простая",
+            "category": "завтраки",
+            "authorName": "Редактор рецептов",
+            "favoriteCount": 0,
+            "ratingCount": 1,
+            "averageRating": 5,
+            "createdAt": "2026-06-03 09:12:44",
+            "updatedAt": "2026-06-03 09:12:44",
+            "instructions": "Взбейте яйца с молоком, посолите и жарьте на среднем огне 6-8 минут.",
+            "ingredients": [
+              {
+                "id": 2,
+                "name": "молоко",
+                "unit": "мл",
+                "quantity": 80,
+                "note": null
+              },
+              {
+                "id": 1,
+                "name": "яйца",
+                "unit": "шт",
+                "quantity": 3,
+                "note": null
+              }
+            ],
+            "userRating": {
+              "stars": 5,
+              "comment": "Быстро и удобно для завтрака.",
+              "createdAt": "2026-06-03 09:12:44",
+              "updatedAt": "2026-06-03 09:12:44"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "group": "Write/action endpoints",
+      "title": "Delete recipe",
+      "method": "DELETE",
+      "path": "/api/recipes/127",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "deleted": true
+      }
+    },
+    {
+      "group": "Write/action endpoints",
+      "title": "Telegram webhook guard",
+      "method": "POST",
+      "path": "/telegram/webhook",
+      "status": 401,
+      "requestBody": {},
+      "responseBody": {
+        "ok": false,
+        "error": "Invalid Telegram webhook secret",
+        "details": null
+      }
+    },
+    {
+      "group": "Dashboard protection endpoints",
+      "title": "Dashboard auth status",
+      "method": "GET",
+      "path": "/api/dashboard-auth/status",
+      "status": 200,
+      "requestBody": null,
+      "responseBody": {
+        "ok": true,
+        "data": {
+          "configured": true,
+          "authenticated": false,
+          "expiresAt": null
+        }
+      }
+    },
+    {
+      "group": "Dashboard protection endpoints",
+      "title": "Dashboard auth setup guard",
+      "method": "POST",
+      "path": "/api/dashboard-auth/setup",
+      "status": 409,
+      "requestBody": {
+        "password": "<redacted>"
+      },
+      "responseBody": {
+        "ok": false,
+        "error": "Dashboard password is already configured",
+        "details": null
+      }
+    },
+    {
+      "group": "Dashboard protection endpoints",
+      "title": "Dashboard auth login guard",
+      "method": "POST",
+      "path": "/api/dashboard-auth/login",
+      "status": 401,
+      "requestBody": {
+        "password": "<redacted>"
+      },
+      "responseBody": {
+        "ok": false,
+        "error": "Invalid dashboard password",
+        "details": null
+      }
+    }
+  ]
+}

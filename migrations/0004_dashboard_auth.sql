@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS dashboard_auth (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  algorithm TEXT NOT NULL,
+  iterations INTEGER NOT NULL,
+  salt_hex TEXT NOT NULL,
+  password_hash_hex TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

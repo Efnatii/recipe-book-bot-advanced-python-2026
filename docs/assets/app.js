@@ -5,8 +5,16 @@ const DEFAULT_USER = Object.freeze({
   username: "recipe_editor",
 });
 const STORAGE_USER_KEY = "recipeBookPanelUserTelegramId";
+const AUTH_TOKEN_KEY = "recipeBookPanelDashboardSessionTokenV1";
+const AUTH_EXPIRES_KEY = "recipeBookPanelDashboardSessionExpiresAtV1";
+const LEGACY_AUTH_EXPIRES_KEY = "recipeBookPanelDashboardAuthExpiresAtV2";
+const LEGACY_AUTH_SESSION_KEY = "recipeBookPanelDashboardAuthExpiresAtV1";
+const AUTH_TTL_MS = 60 * 60 * 1000;
+const PASSWORD_MIN_LENGTH = 4;
 const PAGE_SIZE = 50;
 const INITIAL_VISIBLE_LIMIT = 36;
+let bootStarted = false;
+let authExpiryTimer = 0;
 
 const state = {
   recipes: [],
@@ -71,7 +79,198 @@ const elements = {
   toast: document.querySelector("#toast"),
 };
 
-boot();
+if (window.location.hash === "#api" || window.location.hash === "#api-reference") {
+  window.location.replace("api-reference.html");
+} else {
+  void initDashboardAuth();
+}
+
+async function initDashboardAuth() {
+  document.body.classList.add("auth-pending");
+  if (await isSessionAuthorized()) {
+    unlockDashboard();
+    return;
+  }
+  await showAuthGateFromServer();
+}
+
+async function isSessionAuthorized() {
+  const session = readStoredAuthSession();
+  if (session === null) {
+    clearStoredAuth();
+    return false;
+  }
+  try {
+    const status = await api("/api/dashboard-auth/status", {
+      dashboardSessionToken: session.token,
+    });
+    if (status.authenticated && Number(status.expiresAt) > Date.now()) {
+      storeAuthSession({ token: session.token, expiresAt: Number(status.expiresAt) });
+      return true;
+    }
+  } catch {
+    // If token validation cannot be completed, fail closed and require the password.
+  }
+  clearStoredAuth();
+  return false;
+}
+
+function readStoredAuthSession() {
+  const token = window.localStorage.getItem(AUTH_TOKEN_KEY);
+  const expiresAt = Number(window.localStorage.getItem(AUTH_EXPIRES_KEY));
+  if (token && Number.isFinite(expiresAt) && expiresAt > Date.now()) {
+    return { token, expiresAt };
+  }
+  return null;
+}
+
+function clearStoredAuth() {
+  window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  window.localStorage.removeItem(AUTH_EXPIRES_KEY);
+  window.localStorage.removeItem(LEGACY_AUTH_EXPIRES_KEY);
+  window.sessionStorage.removeItem(LEGACY_AUTH_SESSION_KEY);
+}
+
+function unlockDashboard() {
+  removeAuthGate();
+  document.body.classList.remove("auth-pending");
+  document.body.classList.add("auth-ready");
+  scheduleAuthExpiry();
+  if (!bootStarted) {
+    bootStarted = true;
+    boot();
+  }
+}
+
+function lockDashboard() {
+  clearStoredAuth();
+  document.body.classList.add("auth-pending");
+  void showAuthGateFromServer("Сессия истекла. Введите пароль снова.");
+}
+
+function scheduleAuthExpiry() {
+  window.clearTimeout(authExpiryTimer);
+  const session = readStoredAuthSession();
+  if (session === null) {
+    return;
+  }
+  authExpiryTimer = window.setTimeout(lockDashboard, Math.max(session.expiresAt - Date.now(), 0));
+}
+
+async function showAuthGateFromServer(initialError = "") {
+  try {
+    const status = await api("/api/dashboard-auth/status");
+    showAuthGate(Boolean(status.configured), initialError);
+  } catch {
+    showAuthGate(
+      true,
+      "Не удалось проверить защиту панели. Проверьте доступность Worker API и обновите страницу.",
+    );
+  }
+}
+
+function showAuthGate(hasPassword, initialError = "") {
+  removeAuthGate();
+  const gate = document.createElement("div");
+  gate.id = "dashboardAuthGate";
+  gate.className = "auth-gate";
+  gate.innerHTML = `
+    <form class="auth-card" id="dashboardAuthForm" autocomplete="off">
+      <p class="eyebrow">Защита панели</p>
+      <h2 id="dashboardAuthTitle">${hasPassword ? "Введите пароль" : "Создайте пароль"}</h2>
+      <p class="auth-copy">${hasPassword ? "Пароль уже создан для этой панели. Введите его для доступа." : "Пароль будет создан один раз на сервере и станет общим для всех пользователей панели."} Вход действует 1 час в этом браузере, включая повторное открытие страницы и переход между панелью и API reference.</p>
+      <label class="field">Пароль
+        <input id="dashboardPasswordInput" type="password" required minlength="${PASSWORD_MIN_LENGTH}" autocomplete="${hasPassword ? "current-password" : "new-password"}">
+      </label>
+      ${hasPassword ? "" : `
+        <label class="field">Повторите пароль
+          <input id="dashboardPasswordConfirmInput" type="password" required minlength="${PASSWORD_MIN_LENGTH}" autocomplete="new-password">
+        </label>
+      `}
+      <p class="auth-error" id="dashboardAuthError" hidden></p>
+      <button class="primary-button wide" type="submit">
+        <span>${hasPassword ? "Войти" : "Сохранить пароль"}</span>
+      </button>
+    </form>
+  `;
+  document.body.append(gate);
+  const form = document.querySelector("#dashboardAuthForm");
+  const passwordInput = document.querySelector("#dashboardPasswordInput");
+  form.addEventListener("submit", (event) => handleAuthSubmit(event, hasPassword));
+  setAuthError(initialError);
+  window.setTimeout(() => passwordInput?.focus(), 30);
+}
+
+function removeAuthGate() {
+  document.querySelector("#dashboardAuthGate")?.remove();
+}
+
+async function handleAuthSubmit(event, hasPassword) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submitButton = form.querySelector('button[type="submit"]');
+  const password = document.querySelector("#dashboardPasswordInput")?.value ?? "";
+  const confirmation = document.querySelector("#dashboardPasswordConfirmInput")?.value ?? "";
+  setAuthError("");
+  submitButton.disabled = true;
+  try {
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      throw new Error(`Минимум ${PASSWORD_MIN_LENGTH} символа.`);
+    }
+    if (!hasPassword) {
+      if (password !== confirmation) {
+        throw new Error("Пароли не совпадают.");
+      }
+      const result = await api("/api/dashboard-auth/setup", {
+        method: "POST",
+        body: { password },
+      });
+      authorizeSession(result.session);
+    } else {
+      const result = await api("/api/dashboard-auth/login", {
+        method: "POST",
+        body: { password },
+      });
+      authorizeSession(result.session);
+    }
+    unlockDashboard();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Не удалось проверить пароль.";
+    if (message.includes("already configured")) {
+      showAuthGate(true, "Пароль уже был создан. Введите его для входа.");
+      return;
+    }
+    setAuthError(message.includes("Invalid dashboard password") ? "Неверный пароль." : message);
+  } finally {
+    submitButton.disabled = false;
+  }
+}
+
+function authorizeSession(session) {
+  if (!session?.token || !Number.isFinite(Number(session.expiresAt))) {
+    throw new Error("Dashboard session token is missing");
+  }
+  storeAuthSession({
+    token: session.token,
+    expiresAt: Number(session.expiresAt),
+  });
+}
+
+function storeAuthSession(session) {
+  window.localStorage.setItem(AUTH_TOKEN_KEY, session.token);
+  window.localStorage.setItem(AUTH_EXPIRES_KEY, String(session.expiresAt));
+  window.localStorage.removeItem(LEGACY_AUTH_EXPIRES_KEY);
+  window.sessionStorage.removeItem(LEGACY_AUTH_SESSION_KEY);
+}
+
+function setAuthError(message) {
+  const error = document.querySelector("#dashboardAuthError");
+  if (!error) {
+    return;
+  }
+  error.textContent = message;
+  error.hidden = message.length === 0;
+}
 
 function boot() {
   elements.refreshButton.addEventListener("click", () => loadAll());
@@ -260,13 +459,13 @@ function renderDifficultyOptions() {
 
 function renderWorkspace() {
   renderModeButtons();
+  elements.modeEyebrow.textContent = modeLabel(state.mode);
+  elements.workspaceTitle.textContent = workspaceTitle();
   const recipes = getVisibleRecipes();
   const total = state.mode === "favorites" ? state.favorites.size : state.recipes.length;
   const shown = state.mode === "analytics" ? recipes.length : Math.min(recipes.length, state.visibleLimit);
   elements.resultCount.textContent = `Показано ${shown} из ${recipes.length}`;
   elements.resultCount.title = `Показано ${shown}; найдено ${recipes.length}; всего ${total}`;
-  elements.modeEyebrow.textContent = modeLabel(state.mode);
-  elements.workspaceTitle.textContent = workspaceTitle();
   elements.insightGrid.hidden = false;
   renderInsights(recipes);
   if (state.mode === "analytics") {
@@ -283,6 +482,7 @@ function renderWorkspace() {
 }
 
 function renderModeButtons() {
+  document.body.dataset.mode = state.mode;
   for (const button of elements.modeButtons) {
     button.classList.toggle("active", button.dataset.mode === state.mode);
   }
@@ -531,23 +731,29 @@ function recipeButtonList(recipes, metaMapper) {
 }
 
 function barSection(title, entries, className = "") {
-  const max = Math.max(...entries.map((entry) => entry[1]), 1);
-  const sectionClass = ["analytics-section", className].filter(Boolean).join(" ");
+  const total = entries.reduce((sum, entry) => sum + entry[1], 0);
+  const sectionClass = ["analytics-section", "distribution-section", className].filter(Boolean).join(" ");
   return `
     <section class="${sectionClass}">
       <h3>${escapeHtml(title)}</h3>
-      ${entries
-        .map(([label, value]) => {
-          const width = Math.max(Math.round((value / max) * 100), 4);
-          return `
-            <div class="bar-row">
-              <span class="bar-label">${escapeHtml(label)}</span>
-              <span class="bar-track"><span class="bar-fill" style="width: ${width}%"></span></span>
-              <span class="bar-value">${value}</span>
-            </div>
-          `;
-        })
-        .join("")}
+      <div class="distribution-list">
+        ${entries
+          .map(([label, value], index) => {
+            const share = total > 0 ? value / total : 0;
+            const percent = (share * 100).toLocaleString("ru-RU", {
+              maximumFractionDigits: share < 0.1 ? 1 : 0,
+            });
+            return `
+              <div class="distribution-row" style="--row-accent: var(--distribution-${(index % 5) + 1});">
+                <span class="distribution-marker" aria-hidden="true"></span>
+                <span class="distribution-label">${escapeHtml(label)}</span>
+                <span class="distribution-value">${value}</span>
+                <span class="distribution-share">${percent}%</span>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
     </section>
   `;
 }
@@ -865,9 +1071,13 @@ async function ensureDefaultUser() {
 }
 
 async function api(path, options = {}) {
+  const headers = { "Content-Type": "application/json", ...(options.headers ?? {}) };
+  if (options.dashboardSessionToken) {
+    headers["X-Dashboard-Session"] = options.dashboardSessionToken;
+  }
   const response = await fetch(`${API_BASE}${path}`, {
     method: options.method ?? "GET",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   const payload = await response.json();

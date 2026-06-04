@@ -11,7 +11,7 @@ export class HttpError extends Error {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, X-Telegram-Bot-Api-Secret-Token",
+  "Access-Control-Allow-Headers": "Content-Type, X-Telegram-Bot-Api-Secret-Token, X-Dashboard-Session",
   "Access-Control-Max-Age": "86400",
 };
 

@@ -10,8 +10,11 @@ import {
 } from "./http";
 import {
   addFavorite,
+  createDashboardSession,
+  createDashboardPassword,
   createRecipe,
   deleteRecipe,
+  dashboardAuthStatus,
   ensureUser,
   getRecipe,
   listCategories,
@@ -25,6 +28,8 @@ import {
   removeFavorite,
   searchRecipes,
   updateRecipe,
+  verifyDashboardPassword,
+  verifyDashboardSessionToken,
 } from "./repository";
 import { handleTelegramWebhook } from "./telegram";
 import { parseRatingInput, parseRecipeInput, parseUserInput } from "./validation";
@@ -61,7 +66,13 @@ async function route(request: Request, env: RuntimeEnv, ctx: ExecutionContext): 
       ok: true,
       name: "Recipe Book Online API",
       site: env.PUBLIC_SITE_URL,
-      endpoints: ["/api/health", "/api/stats", "/api/recipes", "/api/categories"],
+      endpoints: [
+        "/api/health",
+        "/api/stats",
+        "/api/recipes",
+        "/api/categories",
+        "/api/dashboard-auth/status",
+      ],
     });
   }
 
@@ -83,6 +94,45 @@ async function route(request: Request, env: RuntimeEnv, ctx: ExecutionContext): 
 
   if (parts.length === 2 && parts[1] === "stats" && request.method === "GET") {
     return json({ ok: true, data: await recipeStatistics(env.DB) });
+  }
+
+  if (parts.length === 3 && parts[1] === "dashboard-auth") {
+    if (parts[2] === "status" && request.method === "GET") {
+      const sessionToken = readDashboardSessionToken(request);
+      const expiresAt =
+        sessionToken === null ? null : await verifyDashboardSessionToken(env.DB, sessionToken);
+      return json({
+        ok: true,
+        data: {
+          ...(await dashboardAuthStatus(env.DB)),
+          authenticated: expiresAt !== null,
+          expiresAt,
+        },
+      });
+    }
+    if (parts[2] === "setup" && request.method === "POST") {
+      const created = await createDashboardPassword(
+        env.DB,
+        parseDashboardPasswordPayload(await readJson(request)),
+      );
+      if (!created) {
+        throw new HttpError(409, "Dashboard password is already configured");
+      }
+      return json(
+        { ok: true, data: { configured: true, session: await requireDashboardSession(env.DB) } },
+        201,
+      );
+    }
+    if (parts[2] === "login" && request.method === "POST") {
+      const authenticated = await verifyDashboardPassword(
+        env.DB,
+        parseDashboardPasswordPayload(await readJson(request)),
+      );
+      if (!authenticated) {
+        throw new HttpError(401, "Invalid dashboard password");
+      }
+      return json({ ok: true, data: { authenticated: true, session: await requireDashboardSession(env.DB) } });
+    }
   }
 
   if (parts.length === 2 && parts[1] === "categories" && request.method === "GET") {
@@ -196,4 +246,38 @@ async function route(request: Request, env: RuntimeEnv, ctx: ExecutionContext): 
   }
 
   throw new HttpError(404, "Route not found");
+}
+
+function readDashboardSessionToken(request: Request): string | null {
+  const token = request.headers.get("X-Dashboard-Session")?.trim() ?? "";
+  return token.length === 0 ? null : token;
+}
+
+async function requireDashboardSession(db: D1Database) {
+  const session = await createDashboardSession(db);
+  if (session === null) {
+    throw new HttpError(500, "Dashboard session could not be created");
+  }
+  return session;
+}
+
+function parseDashboardPasswordPayload(payload: unknown): string {
+  if (typeof payload !== "object" || payload === null) {
+    throw new HttpError(400, "password is required");
+  }
+
+  const password = (payload as { password?: unknown }).password;
+  if (typeof password !== "string") {
+    throw new HttpError(400, "password is required");
+  }
+
+  if (password.length < 4) {
+    throw new HttpError(400, "password must be at least 4 characters");
+  }
+
+  if (password.length > 256) {
+    throw new HttpError(400, "password is too long");
+  }
+
+  return password;
 }

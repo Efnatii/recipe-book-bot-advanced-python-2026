@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Книга рецептов: панель управления</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="assets/styles.css">
-  <script defer src="assets/app.js"></script>
+  <link rel="stylesheet" href="assets/styles.css?v=20260604_auth_token_persist">
+  <script defer src="assets/app.js?v=20260604_auth_token_persist"></script>
 </head>
-<body>
+<body class="auth-pending">
   <svg class="icon-sprite" aria-hidden="true" focusable="false">
     <symbol id="icon-api" viewBox="0 0 24 24">
       <path d="M4 5h16v6H4V5Z"></path>
@@ -77,7 +77,7 @@
         </div>
       </div>
       <div class="topbar-actions">
-        <a class="outline-link compact-link" href="https://recipe-book-online-api-2026.egory780.workers.dev/" target="_blank" rel="noreferrer" aria-label="Открыть API" title="API">
+        <a class="outline-link compact-link" href="api-reference.html" target="_blank" rel="noreferrer" aria-label="Открыть API reference" title="API reference">
           <svg class="icon"><use href="#icon-api"></use></svg>
           <span>API</span>
         </a>

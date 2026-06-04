@@ -74,6 +74,15 @@ export type UserRecipeState = {
   userRating: number | null;
 };
 
+export type DashboardAuthStatus = {
+  configured: boolean;
+};
+
+export type DashboardSession = {
+  token: string;
+  expiresAt: number;
+};
+
 type IdRow = {
   id: number;
 };
@@ -128,6 +137,17 @@ type D1RunMeta = {
   last_row_id?: number | string;
 };
 
+type DashboardAuthRow = {
+  algorithm: string;
+  iterations: number;
+  salt_hex: string;
+  password_hash_hex: string;
+};
+
+const DASHBOARD_AUTH_ALGORITHM = "PBKDF2-SHA-256";
+const DASHBOARD_AUTH_ITERATIONS = 100000;
+const DASHBOARD_SESSION_TTL_MS = 60 * 60 * 1000;
+
 const recipeSelect = `
   SELECT
     r.id,
@@ -167,6 +187,9 @@ export const onlineCrudOperationNames = [
   "rate_recipe",
   "average_rating",
   "telegram_webhook",
+  "dashboard_auth_status",
+  "dashboard_auth_setup",
+  "dashboard_auth_login",
 ];
 
 export async function recipeStatistics(db: D1Database): Promise<Record<string, number>> {
@@ -190,6 +213,95 @@ export async function recipeStatistics(db: D1Database): Promise<Record<string, n
     ratings,
     crudOperations: onlineCrudOperationNames.length,
   };
+}
+
+export async function dashboardAuthStatus(db: D1Database): Promise<DashboardAuthStatus> {
+  const row = await db
+    .prepare("SELECT 1 AS found FROM dashboard_auth WHERE id = 1")
+    .first<{ found: number }>();
+  return { configured: row !== null };
+}
+
+export async function createDashboardPassword(
+  db: D1Database,
+  password: string,
+): Promise<boolean> {
+  const status = await dashboardAuthStatus(db);
+  if (status.configured) {
+    return false;
+  }
+
+  const saltHex = randomHex(16);
+  const hashHex = await hashDashboardPassword(password, saltHex, DASHBOARD_AUTH_ITERATIONS);
+  const result = await db
+    .prepare(
+      `INSERT OR IGNORE INTO dashboard_auth (
+        id,
+        algorithm,
+        iterations,
+        salt_hex,
+        password_hash_hex
+      ) VALUES (1, ?, ?, ?, ?)`,
+    )
+    .bind(DASHBOARD_AUTH_ALGORITHM, DASHBOARD_AUTH_ITERATIONS, saltHex, hashHex)
+    .run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export async function verifyDashboardPassword(
+  db: D1Database,
+  password: string,
+): Promise<boolean> {
+  const row = await readDashboardAuthRow(db);
+  if (row === null || row.algorithm !== DASHBOARD_AUTH_ALGORITHM) {
+    return false;
+  }
+
+  const candidateHash = await hashDashboardPassword(password, row.salt_hex, row.iterations);
+  return constantTimeEqualHex(candidateHash, row.password_hash_hex);
+}
+
+export async function createDashboardSession(db: D1Database): Promise<DashboardSession | null> {
+  const row = await readDashboardAuthRow(db);
+  if (row === null || row.algorithm !== DASHBOARD_AUTH_ALGORITHM) {
+    return null;
+  }
+
+  const expiresAt = Date.now() + DASHBOARD_SESSION_TTL_MS;
+  const payload = base64UrlEncodeText(JSON.stringify({ exp: expiresAt, nonce: randomHex(16) }));
+  const signature = await signDashboardSession(payload, row.password_hash_hex);
+  return {
+    token: `${payload}.${signature}`,
+    expiresAt,
+  };
+}
+
+export async function verifyDashboardSessionToken(
+  db: D1Database,
+  token: string,
+): Promise<number | null> {
+  const parts = token.split(".");
+  if (parts.length !== 2) {
+    return null;
+  }
+
+  const payload = parts[0] ?? "";
+  const signature = parts[1] ?? "";
+  if (payload.length === 0 || signature.length === 0) {
+    return null;
+  }
+  const decoded = readDashboardSessionPayload(payload);
+  if (decoded === null || decoded.exp <= Date.now()) {
+    return null;
+  }
+
+  const row = await readDashboardAuthRow(db);
+  if (row === null || row.algorithm !== DASHBOARD_AUTH_ALGORITHM) {
+    return null;
+  }
+
+  const expectedSignature = await signDashboardSession(payload, row.password_hash_hex);
+  return constantTimeEqualHex(signature, expectedSignature) ? decoded.exp : null;
 }
 
 export async function listCategories(db: D1Database): Promise<{ id: number; name: string }[]> {
@@ -580,6 +692,125 @@ async function requireRecipe(db: D1Database, recipeId: number): Promise<RecipeDe
 async function countTable(db: D1Database, table: string): Promise<number> {
   const row = await db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).first<CountRow>();
   return row?.count ?? 0;
+}
+
+async function hashDashboardPassword(
+  password: string,
+  saltHex: string,
+  iterations: number,
+): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: hexToBytes(saltHex),
+      iterations,
+    },
+    key,
+    256,
+  );
+  return bytesToHex(new Uint8Array(bits));
+}
+
+async function readDashboardAuthRow(db: D1Database): Promise<DashboardAuthRow | null> {
+  return db
+    .prepare(
+      `SELECT algorithm, iterations, salt_hex, password_hash_hex
+       FROM dashboard_auth
+       WHERE id = 1`,
+    )
+    .first<DashboardAuthRow>();
+}
+
+async function signDashboardSession(payload: string, signingKeyHex: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    hexToBytes(signingKeyHex),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+  return bytesToHex(new Uint8Array(signature));
+}
+
+function readDashboardSessionPayload(payload: string): { exp: number; nonce: string } | null {
+  try {
+    const decoded = JSON.parse(base64UrlDecodeText(payload)) as { exp?: unknown; nonce?: unknown };
+    if (
+      typeof decoded.exp !== "number" ||
+      !Number.isFinite(decoded.exp) ||
+      typeof decoded.nonce !== "string" ||
+      decoded.nonce.length === 0
+    ) {
+      return null;
+    }
+    return { exp: decoded.exp, nonce: decoded.nonce };
+  } catch {
+    return null;
+  }
+}
+
+function base64UrlEncodeText(value: string): string {
+  let binary = "";
+  for (const byte of new TextEncoder().encode(value)) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
+}
+
+function base64UrlDecodeText(value: string): string {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+function randomHex(length: number): string {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return bytesToHex(bytes);
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  let value = "";
+  for (const byte of bytes) {
+    value += byte.toString(16).padStart(2, "0");
+  }
+  return value;
+}
+
+function hexToBytes(value: string): Uint8Array {
+  if (value.length % 2 !== 0 || /[^0-9a-f]/i.test(value)) {
+    throw new Error("Invalid dashboard auth salt");
+  }
+  const bytes = new Uint8Array(value.length / 2);
+  for (let index = 0; index < bytes.length; index += 1) {
+    bytes[index] = Number.parseInt(value.slice(index * 2, index * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+function constantTimeEqualHex(left: string, right: string): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    diff |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return diff === 0;
 }
 
 function rowToSummary(row: RecipeRow): RecipeSummary {
